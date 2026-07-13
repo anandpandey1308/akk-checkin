@@ -41,16 +41,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/', (req, res, next) => {
-  const hasSession = !!(req.session && req.session.user);
-  const targetFile = hasSession ? 'original_dashboard.html' : 'index.html';
-  const filePath = path.join(__dirname, '..', 'public', targetFile);
-  if (fs.existsSync(filePath)) {
-    return res.sendFile(filePath);
-  }
-  next();
-});
-
 // Static frontend build (populated by `vite build` → copied here at deploy time)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -58,20 +48,11 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
-  
-  const hasSession = !!(req.session && req.session.user);
-  const targetFile = hasSession ? 'original_dashboard.html' : 'index.html';
-  const filePath = path.join(__dirname, '..', 'public', targetFile);
-  
-  if (!fs.existsSync(filePath)) {
-    const defaultPath = path.join(__dirname, '..', 'public', 'index.html');
-    if (!fs.existsSync(defaultPath)) {
-      return res.status(200).json({ message: 'AKK Check-in System API — no frontend build in public/ yet' });
-    }
-    return res.sendFile(defaultPath);
+  const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    return res.status(200).json({ message: 'AKK Check-in System API — no frontend build in public/ yet' });
   }
-  
-  res.sendFile(filePath);
+  res.sendFile(indexPath);
 });
 
 app.use((err, req, res, next) => {
