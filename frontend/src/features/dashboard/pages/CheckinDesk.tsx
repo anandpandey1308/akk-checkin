@@ -5,6 +5,7 @@ import type { LogEntry, Doctor, Patient } from '@/services/dashboard.service';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { 
   Barcode, 
   Search, 
@@ -22,7 +23,8 @@ import {
   FileText,
   TrendingUp,
   Activity,
-  Heart
+  Heart,
+  UserPlus
 } from 'lucide-react';
 
 export function CheckinDesk() {
@@ -294,94 +296,95 @@ export function CheckinDesk() {
         </Alert>
       )}
 
-      {/* ── Rich Dashboard Metrics Cards Row (Match approved design system) ── */}
+      {/* ── Rich Dashboard Metrics Cards Row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* Metric 1: Total Registered */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow duration-200">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patients Registered</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Registered</span>
             <div className="bg-teal-50 text-teal-600 p-2 rounded-xl border border-teal-100/50">
               <Users className="h-4.5 w-4.5" />
             </div>
           </div>
-          <div className="mt-2.5">
+          <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.total}</h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-teal-600">
-              <TrendingUp className="h-3 w-3" />
-              <span>+12 today</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-teal-600 uppercase tracking-wide">
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span>Registered Today</span>
             </div>
           </div>
         </div>
 
         {/* Metric 2: Currently In Queue */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow duration-200">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Waiting in Queue</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">In Waitlist</span>
             <div className="bg-amber-50 text-amber-600 p-2 rounded-xl border border-amber-100/50">
               <Clock className="h-4.5 w-4.5" />
             </div>
           </div>
-          <div className="mt-2.5">
+          <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.waiting}</h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              <Activity className="h-3 w-3 text-amber-500 animate-pulse" />
-              <span>Active waitlist</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-amber-600 uppercase tracking-wide">
+              <Activity className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+              <span>Waiting to See Doctor</span>
             </div>
           </div>
         </div>
 
         {/* Metric 3: Consultations Completed */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow duration-200">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consultations Done</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Consulted</span>
             <div className="bg-emerald-50 text-emerald-600 p-2 rounded-xl border border-emerald-100/50">
               <CheckCircle className="h-4.5 w-4.5" />
             </div>
           </div>
-          <div className="mt-2.5">
+          <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.completed}</h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-emerald-600">
-              <span>Checkout successful</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-emerald-600 uppercase tracking-wide">
+              <CheckCircle className="h-3.5 w-3.5" />
+              <span>Checks Completed</span>
             </div>
           </div>
         </div>
 
         {/* Metric 4: Doctors Available */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow duration-200">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doctors Volunteering</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Doctors On-site</span>
             <div className="bg-blue-50 text-blue-600 p-2 rounded-xl border border-blue-100/50">
               <Heart className="h-4.5 w-4.5" />
             </div>
           </div>
-          <div className="mt-2.5">
+          <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.availableDocs}</h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-blue-600">
-              <span>Consultation rooms</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-blue-600 uppercase tracking-wide">
+              <span>Active Rooms Dispatch</span>
             </div>
           </div>
         </div>
 
         {/* Metric 5: Average Wait Time */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow duration-200">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Waiting Time</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Avg Wait Flow</span>
             <div className="bg-indigo-50 text-indigo-600 p-2 rounded-xl border border-indigo-100/50">
               <Activity className="h-4.5 w-4.5" />
             </div>
           </div>
-          <div className="mt-2.5">
+          <div className="mt-3">
             <h3 className="text-2xl font-black text-slate-800 leading-none">14 min</h3>
-            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-indigo-600">
-              <span>Optimal patient flow</span>
+            <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-indigo-600 uppercase tracking-wide">
+              <span>Optimal patient speed</span>
             </div>
           </div>
         </div>
 
       </div>
 
-      {/* ── Checkin Workspace Layout ── */}
+      {/* ── Checkin Workspace Layout (Senior UX Optimization Grid) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Quick Scanner & Doctors reference roster */}
@@ -414,7 +417,7 @@ export function CheckinDesk() {
                     Scan barcode or type GK/XXXX...
                   </label>
                 </div>
-                <Button type="submit" variant="primary" className="w-full text-xs py-2 rounded-xl">
+                <Button type="submit" variant="primary" className="w-full text-xs py-2.5 rounded-xl shadow-xs">
                   Lookup Card
                 </Button>
               </form>
@@ -428,8 +431,8 @@ export function CheckinDesk() {
                         {scannedPatient.gk}
                       </span>
                       {isNewWalkin ? (
-                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-wider mt-1.5">
-                          ⚠️ Unregistered Walk-in
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-wider mt-1.5 flex items-center gap-1">
+                          <UserPlus className="h-3.5 w-3.5" /> Walk-in Registration
                         </p>
                       ) : (
                         <h4 className="text-xs font-bold text-slate-800 mt-1.5 leading-none">{scannedPatient.name}</h4>
@@ -437,7 +440,7 @@ export function CheckinDesk() {
                     </div>
                     <button 
                       onClick={resetScanner}
-                      className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-slate-650 p-1 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -451,7 +454,7 @@ export function CheckinDesk() {
                           placeholder=" "
                           value={walkinName}
                           onChange={(e) => setWalkinName(e.target.value)}
-                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-medium placeholder-transparent"
+                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-semibold placeholder-transparent"
                         />
                         <label
                           htmlFor="walkinNameInput"
@@ -467,7 +470,7 @@ export function CheckinDesk() {
                           placeholder=" "
                           value={walkinContact}
                           onChange={(e) => setWalkinContact(e.target.value)}
-                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-medium placeholder-transparent"
+                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-semibold placeholder-transparent"
                         />
                         <label
                           htmlFor="walkinContactInput"
@@ -499,7 +502,7 @@ export function CheckinDesk() {
                   <select
                     value={selectedDoctor}
                     onChange={(e) => setSelectedDoctor(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-xs font-medium focus:bg-white focus:border-teal-500 focus:outline-none transition-colors cursor-pointer"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-xs font-semibold focus:bg-white focus:border-teal-500 focus:outline-none transition-colors cursor-pointer"
                   >
                     <option value="">Select Doctor...</option>
                     {doctors.map((d) => (
@@ -514,23 +517,23 @@ export function CheckinDesk() {
                 {/* Select Type and Priority triggers */}
                 <div className="flex gap-4 items-center justify-between text-xs pt-1 px-1">
                   <div className="flex gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-600">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-655">
                       <input
                         type="radio"
                         name="checkinType"
                         checked={checkinType === 'followup'}
                         onChange={() => setCheckinType('followup')}
-                        className="text-teal-600 focus:ring-teal-500"
+                        className="text-teal-650 focus:ring-teal-500"
                       />
                       Follow-up
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-600">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-655">
                       <input
                         type="radio"
                         name="checkinType"
                         checked={checkinType === 'new'}
                         onChange={() => setCheckinType('new')}
-                        className="text-teal-600 focus:ring-teal-500"
+                        className="text-teal-650 focus:ring-teal-500"
                       />
                       New Case
                     </label>
@@ -541,7 +544,7 @@ export function CheckinDesk() {
                       type="checkbox"
                       checked={isPriority}
                       onChange={(e) => setIsPriority(e.target.checked)}
-                      className="text-teal-600 rounded-md focus:ring-teal-500"
+                      className="text-teal-650 rounded-md focus:ring-teal-500"
                     />
                     <Star className={`h-4.5 w-4.5 ${isPriority ? 'text-amber-500 fill-amber-500' : 'text-slate-300'}`} />
                     Priority
@@ -549,10 +552,10 @@ export function CheckinDesk() {
                 </div>
 
                 <div className="flex gap-2.5 pt-2">
-                  <Button variant="outline" className="flex-1 text-xs py-2 rounded-xl bg-white border-slate-200 text-slate-600" onClick={resetScanner}>
+                  <Button variant="outline" className="flex-1 text-xs py-2.5 rounded-xl bg-white border-slate-200 text-slate-600" onClick={resetScanner}>
                     Cancel
                   </Button>
-                  <Button variant="primary" className="flex-1 text-xs py-2 rounded-xl" onClick={handleConfirmCheckin}>
+                  <Button variant="primary" className="flex-1 text-xs py-2.5 rounded-xl shadow-xs" onClick={handleConfirmCheckin}>
                     Confirm Check-in
                   </Button>
                 </div>
@@ -586,7 +589,7 @@ export function CheckinDesk() {
                       <div className="truncate">
                         <p className="font-bold text-slate-700 truncate leading-none">{doc.name}</p>
                         <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-1.5">
-                          Room {idx + 1} • <span className={docStates[doc.code] === 'calling' ? 'text-amber-600 font-bold' : 'text-slate-400'}>{docStates[doc.code] || 'idle'}</span>
+                          Room {idx + 1} • <span className={docStates[doc.code] === 'calling' ? 'text-amber-600 font-bold' : 'text-slate-450'}>{docStates[doc.code] || 'idle'}</span>
                         </p>
                       </div>
                     </div>
@@ -597,7 +600,7 @@ export function CheckinDesk() {
                           <button
                             onClick={() => handleMoveDoctor(idx, 'up')}
                             disabled={idx === 0}
-                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
+                            className="p-1 text-slate-450 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
                             title="Move Up"
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -605,7 +608,7 @@ export function CheckinDesk() {
                           <button
                             onClick={() => handleMoveDoctor(idx, 'down')}
                             disabled={idx === doctors.length - 1}
-                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
+                            className="p-1 text-slate-450 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
                             title="Move Down"
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
@@ -628,7 +631,7 @@ export function CheckinDesk() {
 
         </div>
 
-        {/* Right Section: Patient Queue Logs Table (Clinical presentation) */}
+        {/* Right Section: Patient Queue Logs (Clinical Presentation with Large Badges) ── */}
         <div className="lg:col-span-8 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
           
           {/* Filters controls bar */}
@@ -641,15 +644,12 @@ export function CheckinDesk() {
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Today's Check-in Log</h3>
               </div>
               
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Filter log (name, GK, queue)..."
-                  value={searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-slate-50 border-slate-200 py-1.5 text-xs rounded-xl focus:bg-white"
-                />
-              </div>
+              <SearchInput
+                placeholder="Filter log (name, GK, queue)..."
+                value={searchQuery}
+                onChange={setSearchQuery}
+                className="w-full sm:w-64"
+              />
             </div>
 
             {/* Quick dropdown selectors */}
@@ -657,7 +657,7 @@ export function CheckinDesk() {
               <select
                 value={doctorFilter}
                 onChange={(e) => setDoctorFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 focus:outline-none focus:border-teal-500 cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-650 focus:outline-none focus:border-teal-500 cursor-pointer"
               >
                 <option value="all">All Doctors</option>
                 {doctors.map((d) => (
@@ -671,7 +671,7 @@ export function CheckinDesk() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 focus:outline-none focus:border-teal-500 cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-655 focus:outline-none focus:border-teal-500 cursor-pointer"
               >
                 <option value="all">All Statuses</option>
                 <option value="waiting">Waiting</option>
@@ -693,108 +693,131 @@ export function CheckinDesk() {
             </div>
           </div>
 
-          {/* Table display logs queue */}
-          <div className="flex-1 overflow-x-auto">
+          {/* Clinical layout presentation logs cards */}
+          <div className="flex-1 space-y-3 overflow-y-auto max-h-[580px] pr-1">
             {filteredLog.length === 0 ? (
-              <div className="h-full flex flex-col justify-center items-center py-14 text-slate-400 text-center">
-                <Search className="h-10 w-10 text-slate-300 mb-3" />
+              <div className="h-full flex flex-col justify-center items-center py-16 text-slate-400 text-center">
+                <Search className="h-10 w-10 text-slate-350 mb-3" />
                 <p className="text-sm font-semibold text-slate-800">No patient records match the filters</p>
                 <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                  Scan a patient card barcode or clear active search filter parameters to view today's log.
+                  Scan a patient card barcode or clear search filter parameter drop-downs to view today's log.
                 </p>
                 <Button variant="outline" size="sm" className="mt-4 text-xs py-1.5 px-3 rounded-xl border-slate-200 bg-white" onClick={resetScanner}>
                   Reset Log Filters
                 </Button>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="py-2.5">Queue</th>
-                    <th className="py-2.5">GK Card</th>
-                    <th className="py-2.5">Patient Details</th>
-                    <th className="py-2.5">Assigned Doctor</th>
-                    <th className="py-2.5 text-center">Physical Folder</th>
-                    <th className="py-2.5 text-center">Consultation</th>
-                    <th className="py-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {filteredLog.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-slate-50/50 group">
-                      <td className="py-3.5">
-                        <span className="font-mono font-black text-slate-800 text-sm">{entry.queue}</span>
-                      </td>
-                      <td className="py-3.5 font-mono text-[10px] text-teal-700 font-bold">{entry.gk}</td>
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-800 leading-none">{entry.name}</span>
+              filteredLog.map((entry) => {
+                const isCompleted = entry.status === 'completed';
+                const isCalled = entry.status === 'called';
+                
+                return (
+                  <div 
+                    key={entry.id} 
+                    className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-xs group ${
+                      isCompleted 
+                        ? 'bg-slate-50/50 border-slate-200/60 opacity-80' 
+                        : isCalled 
+                        ? 'bg-amber-50/20 border-amber-200/80 shadow-xs' 
+                        : 'bg-white border-slate-200/90'
+                    }`}
+                  >
+                    
+                    {/* Left block: Large Centered Queue Badge + Patient metadata */}
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Queue token Circle */}
+                      <span className={`h-12 w-12 rounded-full font-mono font-black text-sm flex items-center justify-center border shrink-0 shadow-inner select-none ${
+                        isCompleted 
+                          ? 'bg-slate-100 border-slate-200 text-slate-450' 
+                          : isCalled 
+                          ? 'bg-amber-50 border-amber-200 text-amber-700 animate-pulse font-extrabold' 
+                          : 'bg-teal-50 border-teal-100 text-teal-900'
+                      }`}>
+                        {entry.queue}
+                      </span>
+                      
+                      {/* Patient metadata */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-800 leading-tight truncate">{entry.name}</span>
                           {entry.priority && (
-                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                            <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />
                           )}
                         </div>
-                        <div className="flex gap-2 items-center text-[9px] text-slate-400 font-bold uppercase mt-1">
-                          <span className={entry.type === 'new' ? 'text-teal-600 bg-teal-50/60 px-1 rounded' : 'text-slate-400'}>
+                        <div className="flex flex-wrap gap-2 items-center text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">
+                          <span className="font-mono text-teal-700 font-bold">{entry.gk}</span>
+                          <span>•</span>
+                          <span className={entry.type === 'new' ? 'text-teal-650 bg-teal-50/60 px-1 rounded' : 'text-slate-400'}>
                             {entry.type === 'new' ? 'New Case' : 'Followup'}
                           </span>
-                          {entry.contact && <span>• {entry.contact}</span>}
+                          {entry.contact && (
+                            <>
+                              <span>•</span>
+                              <span>{entry.contact}</span>
+                            </>
+                          )}
                         </div>
-                      </td>
-                      <td className="py-3.5 font-semibold text-slate-600">
-                        {entry.doctorName || entry.doctor}
-                      </td>
+                      </div>
+                    </div>
+
+                    {/* Right block: Doctor, Folder logs indicators, and cancel operations */}
+                    <div className="flex flex-wrap items-center gap-3.5 sm:justify-end shrink-0">
                       
-                      {/* Folder status toggler */}
-                      <td className="py-3.5 text-center">
-                        <button
-                          onClick={() => handleCycleFileStatus(entry.id, entry.fileStatus)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase cursor-pointer select-none transition-all ${
-                            entry.fileStatus === 'found'
-                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-inner'
-                              : entry.fileStatus === 'transit'
-                              ? 'bg-blue-50 border-blue-100 text-blue-700'
-                              : entry.fileStatus === 'missing'
-                              ? 'bg-rose-50 border-rose-100 text-rose-700 shadow-inner'
-                              : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-600 hover:border-slate-300'
-                          }`}
-                          title={`Click to cycle status. Current: ${entry.fileStatus || 'Not Found'}`}
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                          {entry.fileStatus || 'None'}
-                        </button>
-                      </td>
+                      {/* Assigned Doctor room badge */}
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Assigned Doctor</span>
+                        <span className="font-bold text-xs text-slate-700 block mt-0.5 leading-none">
+                          {entry.doctorName || entry.doctor}
+                        </span>
+                      </div>
 
-                      {/* Consultation queue status tag */}
-                      <td className="py-3.5 text-center">
-                        <button
-                          onClick={() => handleCycleStatus(entry.id, entry.status)}
-                          className={`inline-flex px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase cursor-pointer select-none transition-all ${
-                            entry.status === 'completed'
-                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                              : entry.status === 'called'
-                              ? 'bg-amber-50 border-amber-100 text-amber-700 font-bold border-dashed animate-pulse'
-                              : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
-                          }`}
-                          title={`Click to cycle status. Current: ${entry.status}`}
-                        >
-                          {entry.status}
-                        </button>
-                      </td>
+                      {/* File Folder status trigger pill */}
+                      <button
+                        onClick={() => handleCycleFileStatus(entry.id, entry.fileStatus)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                          entry.fileStatus === 'found'
+                            ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                            : entry.fileStatus === 'transit'
+                            ? 'bg-blue-50 border-blue-105 text-blue-700'
+                            : entry.fileStatus === 'missing'
+                            ? 'bg-rose-50 border-rose-100 text-rose-700'
+                            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                        }`}
+                        title={`Folder status. Click to cycle. Current: ${entry.fileStatus || 'None'}`}
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                        <span>File: {entry.fileStatus || 'None'}</span>
+                      </button>
 
-                      {/* Delete Action button */}
-                      <td className="py-3.5 text-right">
-                        <button
-                          onClick={() => handleDeleteEntry(entry.id, entry.name)}
-                          className="text-slate-300 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer opacity-0 group-hover:opacity-100"
-                          title="Cancel Check-in"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {/* Queue dispatching consultation status pill */}
+                      <button
+                        onClick={() => handleCycleStatus(entry.id, entry.status)}
+                        className={`inline-flex px-3.5 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                          isCompleted
+                            ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                            : isCalled
+                            ? 'bg-amber-50 border-amber-200 text-amber-700 border-dashed animate-pulse font-extrabold'
+                            : 'bg-slate-100 border-slate-250 text-slate-700 hover:bg-slate-200/80'
+                        }`}
+                        title={`Queue status. Click to cycle. Current: ${entry.status}`}
+                      >
+                        {entry.status}
+                      </button>
+
+                      {/* Delete action */}
+                      <button
+                        onClick={() => handleDeleteEntry(entry.id, entry.name)}
+                        className="text-slate-300 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer opacity-0 group-hover:opacity-100 shrink-0 border-0"
+                        title="Cancel Check-in"
+                      >
+                        <Trash2 className="h-4.5 w-4.5" />
+                      </button>
+
+                    </div>
+
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

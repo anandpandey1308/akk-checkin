@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { 
   Barcode, 
   Search, 
@@ -145,15 +146,12 @@ export function BarcodePrinter() {
               </div>
 
               <div className="flex gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-48">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search name, GK..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 bg-slate-50 border-slate-200 py-1.5 text-xs rounded-xl focus:bg-white"
-                  />
-                </div>
+                <SearchInput
+                  placeholder="Search name, GK..."
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  className="flex-1 sm:w-48"
+                />
                 <Button 
                   variant="outline" 
                   size="sm" 
