@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 out/
+public/
 
 # Logs
 logs/
@@ -39,3 +40,8 @@ coverage/
 
 # Misc
 *.pem
+
+# Database
+data/
+*.db
+*.db-*
