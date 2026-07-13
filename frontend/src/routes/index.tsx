@@ -9,6 +9,7 @@ import { CallingScreen } from '@/features/dashboard/pages/CallingScreen';
 import { DatabaseManager } from '@/features/dashboard/pages/DatabaseManager';
 import { BarcodePrinter } from '@/features/dashboard/pages/BarcodePrinter';
 import { CampManager } from '@/features/dashboard/pages/CampManager';
+import { DoctorManager } from '@/features/dashboard/pages/DoctorManager';
 
 /**
  * Route guard for pages requiring authentication
@@ -79,6 +80,7 @@ export function AppRoutes() {
                 <Route path="/database" element={<DatabaseManager />} />
                 <Route path="/barcodes" element={<BarcodePrinter />} />
                 <Route path="/camps" element={<CampManager />} />
+                <Route path="/doctors" element={<DoctorManager />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </DashboardLayout>

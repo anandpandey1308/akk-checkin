@@ -3,7 +3,6 @@ import { api } from '@/services/api';
 import { DashboardService } from '@/services/dashboard.service';
 import type { Patient, Doctor } from '@/services/dashboard.service';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { 

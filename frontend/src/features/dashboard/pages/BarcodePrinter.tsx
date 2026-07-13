@@ -2,7 +2,6 @@ import * as React from 'react';
 import { DashboardService } from '@/services/dashboard.service';
 import type { Patient } from '@/services/dashboard.service';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { SearchInput } from '@/components/ui/SearchInput';

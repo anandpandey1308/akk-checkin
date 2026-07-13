@@ -2,7 +2,6 @@ import * as React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { 
-  HeartPulse, 
   LogOut, 
   UserCheck, 
   PhoneCall, 
@@ -11,7 +10,9 @@ import {
   ChevronLeft, 
   Calendar,
   Menu,
-  X
+  X,
+  Clock,
+  UserCog
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -27,6 +28,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [activeCampName, setActiveCampName] = React.useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = React.useState(900); // 15 minutes session
 
   React.useEffect(() => {
     const cached = localStorage.getItem('akk_active_camp_no');
@@ -34,6 +36,26 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       setActiveCampName(`Camp #${cached}`);
     }
   }, [location.pathname]);
+
+  // Session timeout handler
+  React.useEffect(() => {
+    if (timeLeft <= 0) {
+      handleLogout();
+      return;
+    }
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -58,6 +80,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   ];
   const adminGroup: SidebarItem[] = [
     { name: 'Camp Sessions', path: '/camps', icon: Calendar },
+    { name: 'Doctors Roster', path: '/doctors', icon: UserCog },
   ];
 
   const getBreadcrumb = () => {
@@ -72,6 +95,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         return { group: 'Patients', page: 'Barcode Printer' };
       case '/camps':
         return { group: 'Administration', page: 'Camp Sessions' };
+      case '/doctors':
+        return { group: 'Administration', page: 'Doctors Roster' };
       default:
         return { group: 'Dashboard', page: 'Home' };
     }
@@ -136,15 +161,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           title={isCollapsed ? 'Expand Sidebar' : undefined}
         >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="bg-teal-50 border border-teal-100 text-teal-600 p-2 rounded-xl flex items-center justify-center shadow-xs shrink-0">
-              <HeartPulse className="h-5 w-5 animate-pulse text-teal-600" />
+            <div className="bg-white border border-slate-200/50 p-1 rounded-xl flex items-center justify-center shadow-xs shrink-0 h-9 w-9">
+              <img src="/gk-nyaas-logo.webp" alt="Gopal Kiran Nyaas Logo" className="h-7 w-7 object-contain" />
             </div>
             {!isCollapsed && (
               <div className="flex flex-col select-none">
                 <span className="font-bold text-xs tracking-tight text-slate-800 whitespace-nowrap">
                   Asha Ki Kiran
                 </span>
-                <span className="text-[9px] text-teal-600 font-bold uppercase tracking-wider whitespace-nowrap">
+                <span className="text-[9px] text-teal-650 font-bold uppercase tracking-wider whitespace-nowrap">
                   Gopal Kiran Nyaas
                 </span>
               </div>
@@ -270,6 +295,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Session Timer */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-full text-slate-600 text-[10.5px] font-mono select-none shadow-3xs">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              <span className="font-bold">Session: {formatTime(timeLeft)}</span>
+            </div>
+
             {/* Active camp pulsing badge tag */}
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
