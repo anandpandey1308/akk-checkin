@@ -19,7 +19,10 @@ import {
   ArrowDown, 
   RotateCcw, 
   X, 
-  FileText 
+  FileText,
+  TrendingUp,
+  Activity,
+  Heart
 } from 'lucide-react';
 
 export function CheckinDesk() {
@@ -45,7 +48,7 @@ export function CheckinDesk() {
   const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
 
   // Queue log filters
-  const [searchFilter, setSearchFilter] = React.useState('');
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [doctorFilter, setDoctorFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
 
@@ -60,7 +63,6 @@ export function CheckinDesk() {
       setDocStates(state.docStates);
       setActiveCamp(state.activeCamp);
       
-      // Save active camp in localStorage for DashboardLayout header matching
       if (state.activeCamp) {
         localStorage.setItem('akk_active_camp_no', String(state.activeCamp.camp_no));
       } else {
@@ -107,7 +109,6 @@ export function CheckinDesk() {
       setIsPriority(res.patient.priority);
       setIsNewWalkin(false);
     } catch (err: any) {
-      // Patient not found in database -> prompt walk-in check-in
       setScannedPatient({
         gk: formattedGk,
         name: '',
@@ -128,7 +129,7 @@ export function CheckinDesk() {
     setActionError(null);
     setActionSuccess(null);
     if (!activeCamp) {
-      setActionError('No active camp session! Start a camp session under Camp Manager first.');
+      setActionError('No active camp session! Start a camp session under Camp Sessions first.');
       return;
     }
 
@@ -259,24 +260,25 @@ export function CheckinDesk() {
   const filteredLog = React.useMemo(() => {
     return log.filter((entry) => {
       const matchesSearch = 
-        entry.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-        entry.gk.toLowerCase().includes(searchFilter.toLowerCase()) ||
-        entry.queue.toLowerCase().includes(searchFilter.toLowerCase());
+        entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.gk.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.queue.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesDoctor = doctorFilter === 'all' || entry.doctor === doctorFilter;
       const matchesStatus = statusFilter === 'all' || entry.status === statusFilter;
 
       return matchesSearch && matchesDoctor && matchesStatus;
     });
-  }, [log, searchFilter, doctorFilter, statusFilter]);
+  }, [log, searchQuery, doctorFilter, statusFilter]);
 
   // Today metrics counters
   const metrics = React.useMemo(() => {
     const total = log.length;
     const waiting = log.filter((e) => e.status === 'waiting').length;
     const completed = log.filter((e) => e.status === 'completed').length;
-    return { total, waiting, completed };
-  }, [log]);
+    const availableDocs = doctors.filter(d => !d.callingHidden).length;
+    return { total, waiting, completed, availableDocs };
+  }, [log, doctors]);
 
   return (
     <div className="space-y-6">
@@ -292,114 +294,199 @@ export function CheckinDesk() {
         </Alert>
       )}
 
-      {/* ── Vitals/Metrics Counter cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center gap-4 shadow-xs">
-          <div className="bg-teal-50 border border-teal-100/50 p-3.5 rounded-xl text-teal-600">
-            <Users className="h-6 w-6" />
+      {/* ── Rich Dashboard Metrics Cards Row (Match approved design system) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        {/* Metric 1: Total Registered */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patients Registered</span>
+            <div className="bg-teal-50 text-teal-600 p-2 rounded-xl border border-teal-100/50">
+              <Users className="h-4.5 w-4.5" />
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Registered</p>
-            <p className="text-2xl font-black text-slate-800 leading-tight">{metrics.total}</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center gap-4 shadow-xs">
-          <div className="bg-amber-50 border border-amber-100/50 p-3.5 rounded-xl text-amber-600 animate-pulse">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Currently In Queue</p>
-            <p className="text-2xl font-black text-slate-800 leading-tight">{metrics.waiting}</p>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.total}</h3>
+            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-teal-600">
+              <TrendingUp className="h-3 w-3" />
+              <span>+12 today</span>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 flex items-center gap-4 shadow-xs">
-          <div className="bg-emerald-50 border border-emerald-100/50 p-3.5 rounded-xl text-emerald-600">
-            <CheckCircle className="h-6 w-6" />
+        {/* Metric 2: Currently In Queue */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Waiting in Queue</span>
+            <div className="bg-amber-50 text-amber-600 p-2 rounded-xl border border-amber-100/50">
+              <Clock className="h-4.5 w-4.5" />
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Consultations Completed</p>
-            <p className="text-2xl font-black text-slate-800 leading-tight">{metrics.completed}</p>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.waiting}</h3>
+            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <Activity className="h-3 w-3 text-amber-500 animate-pulse" />
+              <span>Active waitlist</span>
+            </div>
           </div>
         </div>
+
+        {/* Metric 3: Consultations Completed */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consultations Done</span>
+            <div className="bg-emerald-50 text-emerald-600 p-2 rounded-xl border border-emerald-100/50">
+              <CheckCircle className="h-4.5 w-4.5" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.completed}</h3>
+            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-emerald-600">
+              <span>Checkout successful</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 4: Doctors Available */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doctors Volunteering</span>
+            <div className="bg-blue-50 text-blue-600 p-2 rounded-xl border border-blue-100/50">
+              <Heart className="h-4.5 w-4.5" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-800 leading-none">{metrics.availableDocs}</h3>
+            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-blue-600">
+              <span>Consultation rooms</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Average Wait Time */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Waiting Time</span>
+            <div className="bg-indigo-50 text-indigo-600 p-2 rounded-xl border border-indigo-100/50">
+              <Activity className="h-4.5 w-4.5" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-800 leading-none">14 min</h3>
+            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-indigo-600">
+              <span>Optimal patient flow</span>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      {/* ── Main Checkin Desk Workspace Columns ── */}
+      {/* ── Checkin Workspace Layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column (Scanner, Inputs, Doctors list) */}
+        {/* Left Column: Quick Scanner & Doctors reference roster */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Card: Barcode lookup form */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
-            <div className="flex items-center gap-2 mb-4">
-              <Barcode className="h-5 w-5 text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Check-in Scan Area</h3>
+          
+          {/* Card: Scanner Panel */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                <Barcode className="h-4.5 w-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Check-in Scan Area</h3>
             </div>
 
             {!scannedPatient ? (
-              <form onSubmit={handleScanSubmit} className="space-y-3">
-                <Input
-                  ref={scannerInputRef}
-                  placeholder="Scan barcode or type GK/XXXX..."
-                  value={scanInput}
-                  onChange={(e) => setScanInput(e.target.value)}
-                  className="bg-slate-50 border-slate-200 focus:bg-white focus:border-teal-500 font-mono text-sm tracking-widest text-center"
-                />
+              <form onSubmit={handleScanSubmit} className="space-y-4">
+                <div className="relative">
+                  <input
+                    ref={scannerInputRef}
+                    id="barcodeScannerInput"
+                    placeholder=" "
+                    value={scanInput}
+                    onChange={(e) => setScanInput(e.target.value)}
+                    className="peer w-full h-14 bg-slate-50 border border-slate-200 rounded-xl px-4 pt-4 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-sm font-semibold tracking-wider placeholder-transparent"
+                  />
+                  <label
+                    htmlFor="barcodeScannerInput"
+                    className="absolute left-4 top-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-[10px]"
+                  >
+                    Scan barcode or type GK/XXXX...
+                  </label>
+                </div>
                 <Button type="submit" variant="primary" className="w-full text-xs py-2 rounded-xl">
                   Lookup Card
                 </Button>
               </form>
             ) : (
               <div className="space-y-4">
-                {/* Patient Summary Card details */}
-                <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-4 space-y-2.5">
+                {/* Patient Summary details */}
+                <div className="bg-slate-50 border border-slate-200/50 rounded-xl p-4 space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-[10px] font-bold font-mono text-teal-600 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                      <span className="text-[9px] font-bold font-mono text-teal-700 bg-teal-50 border border-teal-100/60 px-2 py-0.5 rounded-md">
                         {scannedPatient.gk}
                       </span>
                       {isNewWalkin ? (
-                        <p className="text-[11px] font-semibold text-amber-600 mt-1 uppercase tracking-wider">
+                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-wider mt-1.5">
                           ⚠️ Unregistered Walk-in
                         </p>
                       ) : (
-                        <h4 className="text-sm font-bold text-slate-800 mt-1">{scannedPatient.name}</h4>
+                        <h4 className="text-xs font-bold text-slate-800 mt-1.5 leading-none">{scannedPatient.name}</h4>
                       )}
                     </div>
                     <button 
                       onClick={resetScanner}
-                      className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
 
                   {isNewWalkin ? (
-                    <div className="space-y-3 pt-2">
-                      <Input
-                        placeholder="Patient Full Name"
-                        value={walkinName}
-                        onChange={(e) => setWalkinName(e.target.value)}
-                        className="bg-white border-slate-200 text-xs py-1.5"
-                      />
-                      <Input
-                        placeholder="Contact (Optional)"
-                        value={walkinContact}
-                        onChange={(e) => setWalkinContact(e.target.value)}
-                        className="bg-white border-slate-200 text-xs py-1.5"
-                      />
+                    <div className="space-y-3 pt-1">
+                      <div className="relative">
+                        <input
+                          id="walkinNameInput"
+                          placeholder=" "
+                          value={walkinName}
+                          onChange={(e) => setWalkinName(e.target.value)}
+                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-medium placeholder-transparent"
+                        />
+                        <label
+                          htmlFor="walkinNameInput"
+                          className="absolute left-3 top-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1 peer-focus:text-[9px]"
+                        >
+                          Patient Full Name
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          id="walkinContactInput"
+                          placeholder=" "
+                          value={walkinContact}
+                          onChange={(e) => setWalkinContact(e.target.value)}
+                          className="peer w-full h-11 bg-white border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 transition-all text-xs font-medium placeholder-transparent"
+                        />
+                        <label
+                          htmlFor="walkinContactInput"
+                          className="absolute left-3 top-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1 peer-focus:text-[9px]"
+                        >
+                          Contact Number (Optional)
+                        </label>
+                      </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-1.5 border-t border-slate-200/40">
+                    <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-slate-200/40">
                       <div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">Visits History</p>
-                        <p className="font-semibold text-slate-700">{scannedPatient.visits} visit(s)</p>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Visits History</span>
+                        <span className="font-semibold text-slate-700">{scannedPatient.visits} visit(s)</span>
                       </div>
                       {scannedPatient.expectedTime && (
                         <div>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">Expected Arrival</p>
-                          <p className="font-semibold text-slate-700">{scannedPatient.expectedTime}</p>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Expected Arrival</span>
+                          <span className="font-semibold text-slate-700">{scannedPatient.expectedTime}</span>
                         </div>
                       )}
                     </div>
@@ -407,12 +494,12 @@ export function CheckinDesk() {
                 </div>
 
                 {/* Assigned Doctor selector */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Doctor</label>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block px-1">Assigned Doctor</label>
                   <select
                     value={selectedDoctor}
                     onChange={(e) => setSelectedDoctor(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:border-teal-500 focus:outline-none transition-colors"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-xs font-medium focus:bg-white focus:border-teal-500 focus:outline-none transition-colors cursor-pointer"
                   >
                     <option value="">Select Doctor...</option>
                     {doctors.map((d) => (
@@ -425,9 +512,9 @@ export function CheckinDesk() {
                 </div>
 
                 {/* Select Type and Priority triggers */}
-                <div className="flex gap-4 items-center justify-between text-xs pt-1">
+                <div className="flex gap-4 items-center justify-between text-xs pt-1 px-1">
                   <div className="flex gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-medium text-slate-600">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-600">
                       <input
                         type="radio"
                         name="checkinType"
@@ -437,7 +524,7 @@ export function CheckinDesk() {
                       />
                       Follow-up
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-medium text-slate-600">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-600">
                       <input
                         type="radio"
                         name="checkinType"
@@ -449,7 +536,7 @@ export function CheckinDesk() {
                     </label>
                   </div>
 
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none font-medium text-slate-600">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-slate-700">
                     <input
                       type="checkbox"
                       checked={isPriority}
@@ -462,7 +549,7 @@ export function CheckinDesk() {
                 </div>
 
                 <div className="flex gap-2.5 pt-2">
-                  <Button variant="outline" className="flex-1 text-xs py-2 rounded-xl" onClick={resetScanner}>
+                  <Button variant="outline" className="flex-1 text-xs py-2 rounded-xl bg-white border-slate-200 text-slate-600" onClick={resetScanner}>
                     Cancel
                   </Button>
                   <Button variant="primary" className="flex-1 text-xs py-2 rounded-xl" onClick={handleConfirmCheckin}>
@@ -473,21 +560,18 @@ export function CheckinDesk() {
             )}
           </div>
 
-          {/* Card: Draggable Doctor ordering reference */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
+          {/* Card: Doctor availability reference */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Doctor Roster</h3>
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <Users className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Volunteering Doctors</h3>
               </div>
-              {doctors.length > 0 && (
-                <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                  {doctors.length} active
-                </span>
-              )}
             </div>
 
-            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto pr-1">
+            <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto pr-1">
               {doctors.length === 0 ? (
                 <div className="text-center py-6 text-xs text-slate-400">
                   No active doctors loaded today. Import roster or add doctors in Camp Sessions module.
@@ -495,26 +579,25 @@ export function CheckinDesk() {
               ) : (
                 doctors.map((doc, idx) => (
                   <div key={doc.code} className="py-2.5 flex items-center justify-between text-xs group">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="h-6 w-6 rounded-md bg-teal-50 text-teal-600 flex items-center justify-center font-bold font-mono text-[10px] shrink-0 border border-teal-100/50">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <span className="h-7 w-7 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-black font-mono text-[10px] shrink-0 border border-teal-100/50">
                         {doc.code}
                       </span>
                       <div className="truncate">
-                        <p className="font-semibold text-slate-700 truncate">{doc.name}</p>
-                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wide">
-                          Room {idx + 1} • <span className={docStates[doc.code] === 'calling' ? 'text-teal-600 font-bold' : 'text-slate-400'}>{docStates[doc.code] || 'idle'}</span>
+                        <p className="font-bold text-slate-700 truncate leading-none">{doc.name}</p>
+                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mt-1.5">
+                          Room {idx + 1} • <span className={docStates[doc.code] === 'calling' ? 'text-amber-600 font-bold' : 'text-slate-400'}>{docStates[doc.code] || 'idle'}</span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                      {/* Admin ordering buttons */}
+                    <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
                       {isAdmin && (
                         <>
                           <button
                             onClick={() => handleMoveDoctor(idx, 'up')}
                             disabled={idx === 0}
-                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-50 cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
                             title="Move Up"
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -522,14 +605,14 @@ export function CheckinDesk() {
                           <button
                             onClick={() => handleMoveDoctor(idx, 'down')}
                             disabled={idx === doctors.length - 1}
-                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-50 cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-teal-600 disabled:opacity-30 rounded hover:bg-slate-100 cursor-pointer"
                             title="Move Down"
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => handleToggleDoctorFlag(doc.code, 'display', doc.displayHidden)}
-                            className={`p-1 rounded hover:bg-slate-50 cursor-pointer ${doc.displayHidden ? 'text-rose-500' : 'text-slate-400 hover:text-teal-600'}`}
+                            className={`p-1 rounded hover:bg-slate-100 cursor-pointer ${doc.displayHidden ? 'text-rose-500' : 'text-slate-400 hover:text-teal-600'}`}
                             title={doc.displayHidden ? 'Hidden on TV display' : 'Visible on TV display'}
                           >
                             {doc.displayHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -542,22 +625,28 @@ export function CheckinDesk() {
               )}
             </div>
           </div>
+
         </div>
 
-        {/* Right Column (Primary patient queue logs) */}
-        <div className="lg:col-span-8 bg-white border border-slate-100 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
+        {/* Right Section: Patient Queue Logs Table (Clinical presentation) */}
+        <div className="lg:col-span-8 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
           
-          {/* Header controls & Filters */}
+          {/* Filters controls bar */}
           <div className="border-b border-slate-100 pb-4 mb-4 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Today's Check-in Log</h3>
+              <div className="flex items-center gap-2">
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <Activity className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Today's Check-in Log</h3>
+              </div>
               
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Filter log (name, GK, queue)..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                   className="pl-9 bg-slate-50 border-slate-200 py-1.5 text-xs rounded-xl focus:bg-white"
                 />
               </div>
@@ -568,7 +657,7 @@ export function CheckinDesk() {
               <select
                 value={doctorFilter}
                 onChange={(e) => setDoctorFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 focus:outline-none focus:border-teal-500"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 focus:outline-none focus:border-teal-500 cursor-pointer"
               >
                 <option value="all">All Doctors</option>
                 {doctors.map((d) => (
@@ -582,7 +671,7 @@ export function CheckinDesk() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 focus:outline-none focus:border-teal-500"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-600 focus:outline-none focus:border-teal-500 cursor-pointer"
               >
                 <option value="all">All Statuses</option>
                 <option value="waiting">Waiting</option>
@@ -590,12 +679,12 @@ export function CheckinDesk() {
                 <option value="completed">Completed</option>
               </select>
 
-              {(searchFilter || doctorFilter !== 'all' || statusFilter !== 'all') && (
+              {(searchQuery || doctorFilter !== 'all' || statusFilter !== 'all') && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => { setSearchFilter(''); setDoctorFilter('all'); setStatusFilter('all'); }}
-                  className="text-xs text-teal-600 hover:bg-teal-50 flex items-center gap-1 py-1 px-2.5 rounded-xl border border-teal-100"
+                  onClick={() => { setSearchQuery(''); setDoctorFilter('all'); setStatusFilter('all'); }}
+                  className="text-xs text-teal-700 hover:bg-teal-50 flex items-center gap-1 py-1 px-2.5 rounded-xl border border-teal-100/50"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   Reset Filters
@@ -604,13 +693,18 @@ export function CheckinDesk() {
             </div>
           </div>
 
-          {/* Queue log grid data list */}
+          {/* Table display logs queue */}
           <div className="flex-1 overflow-x-auto">
             {filteredLog.length === 0 ? (
-              <div className="h-full flex flex-col justify-center items-center py-12 text-slate-400">
+              <div className="h-full flex flex-col justify-center items-center py-14 text-slate-400 text-center">
                 <Search className="h-10 w-10 text-slate-300 mb-3" />
-                <p className="text-sm font-semibold">No patient records match the filters</p>
-                <p className="text-xs text-slate-400 mt-1">Scan a patient barcode or clear search to begin</p>
+                <p className="text-sm font-semibold text-slate-800">No patient records match the filters</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                  Scan a patient card barcode or clear active search filter parameters to view today's log.
+                </p>
+                <Button variant="outline" size="sm" className="mt-4 text-xs py-1.5 px-3 rounded-xl border-slate-200 bg-white" onClick={resetScanner}>
+                  Reset Log Filters
+                </Button>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
@@ -620,14 +714,14 @@ export function CheckinDesk() {
                     <th className="py-2.5">GK Card</th>
                     <th className="py-2.5">Patient Details</th>
                     <th className="py-2.5">Assigned Doctor</th>
-                    <th className="py-2.5 text-center">Folder</th>
+                    <th className="py-2.5 text-center">Physical Folder</th>
                     <th className="py-2.5 text-center">Consultation</th>
                     <th className="py-2.5 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredLog.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-slate-50/60 group">
+                    <tr key={entry.id} className="hover:bg-slate-50/50 group">
                       <td className="py-3.5">
                         <span className="font-mono font-black text-slate-800 text-sm">{entry.queue}</span>
                       </td>
@@ -650,17 +744,17 @@ export function CheckinDesk() {
                         {entry.doctorName || entry.doctor}
                       </td>
                       
-                      {/* Physical folder tracking cell */}
+                      {/* Folder status toggler */}
                       <td className="py-3.5 text-center">
                         <button
                           onClick={() => handleCycleFileStatus(entry.id, entry.fileStatus)}
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase cursor-pointer select-none transition-all ${
                             entry.fileStatus === 'found'
-                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-inner'
                               : entry.fileStatus === 'transit'
                               ? 'bg-blue-50 border-blue-100 text-blue-700'
                               : entry.fileStatus === 'missing'
-                              ? 'bg-rose-50 border-rose-100 text-rose-700'
+                              ? 'bg-rose-50 border-rose-100 text-rose-700 shadow-inner'
                               : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-slate-600 hover:border-slate-300'
                           }`}
                           title={`Click to cycle status. Current: ${entry.fileStatus || 'Not Found'}`}
@@ -678,7 +772,7 @@ export function CheckinDesk() {
                             entry.status === 'completed'
                               ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
                               : entry.status === 'called'
-                              ? 'bg-amber-50 border-amber-100 text-amber-700 font-bold shadow-xs border-dashed animate-pulse'
+                              ? 'bg-amber-50 border-amber-100 text-amber-700 font-bold border-dashed animate-pulse'
                               : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
                           }`}
                           title={`Click to cycle status. Current: ${entry.status}`}

@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardService } from '@/services/dashboard.service';
-import type { Camp } from '@/services/dashboard.service';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
+import type { Camp } from '@/services/dashboard.service';
 import { 
   Calendar, 
   Plus, 
@@ -15,7 +14,7 @@ import {
   UserPlus, 
   Copy, 
   ExternalLink, 
-  Users 
+  FileSpreadsheet 
 } from 'lucide-react';
 
 export function CampManager() {
@@ -31,9 +30,9 @@ export function CampManager() {
   const [newCampDate, setNewCampDate] = React.useState('');
 
   // Manual Doctor form
-  const [docCode, setDocCode] = React.useState('');
-  const [docName, setDocName] = React.useState('');
-  const [isAddingDoc, setIsAddingDoc] = React.useState(false);
+  const [doctorName, setDoctorName] = React.useState('');
+  const [doctorCode, setDoctorCode] = React.useState('');
+  const [doctorRosterCampNo, setDoctorRosterCampNo] = React.useState('');
 
   // Excel Doctor list uploader
   const [doctorExcelFile, setDoctorExcelFile] = React.useState<File | null>(null);
@@ -67,35 +66,38 @@ export function CampManager() {
     fetchCamps();
   }, [fetchCamps]);
 
-  // Create a new camp
+  // Create new session camp
   const handleCreateCamp = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     setActionSuccess(null);
-    if (!newCampNo) {
-      setActionError('Camp Number is required.');
+    if (!isAdmin) return;
+
+    const no = parseInt(newCampNo.trim());
+    if (isNaN(no) || no <= 0) {
+      setActionError('Please specify a positive camp sequence index.');
       return;
     }
 
     try {
-      await DashboardService.createCamp(Number(newCampNo), newCampDate || undefined);
-      setActionSuccess(`Successfully registered Camp #${newCampNo}!`);
+      await DashboardService.createCamp(no, newCampDate || undefined);
+
+      setActionSuccess(`Camp session #${no} registered successfully.`);
       setNewCampNo('');
       setNewCampDate('');
       fetchCamps();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to register camp.');
+      setActionError(err.message || 'Session creation request failed.');
     }
   };
 
-  // Toggle camp activation
+  // Set active camp session on server
   const handleActivateCamp = async (campNo: number) => {
     setActionError(null);
     setActionSuccess(null);
     try {
       await DashboardService.activateCampSession(campNo);
-      setActionSuccess(`Camp #${campNo} is now active!`);
-      // Update local storage so headers sync immediately
+      setActionSuccess(`Camp #${campNo} is now the active camp session!`);
       localStorage.setItem('akk_active_camp_no', String(campNo));
       fetchCamps();
     } catch (err: any) {
@@ -103,74 +105,91 @@ export function CampManager() {
     }
   };
 
-  // Delete a camp
+  // Export camp check-in logs to Excel
+  const handleExportCamp = async (campNo: number) => {
+    setActionError(null);
+    try {
+      window.open(`/api/camps/${campNo}/export`, '_blank');
+      setActionSuccess(`Export triggered for Camp #${campNo}. Please check your downloads folder.`);
+    } catch (err: any) {
+      setActionError(err.message || 'Excel export request failed.');
+    }
+  };
+
+  // Delete camp permanently
   const handleDeleteCamp = async (campNo: number) => {
-    if (!window.confirm(`WARNING: Deleting Camp #${campNo} is permanent and will delete all patients, check-ins, and counters for this camp! Are you sure?`)) return;
+    if (!isAdmin) return;
+    if (!window.confirm(`Permanently delete Camp #${campNo} and all associated queues logs? This cannot be undone!`)) return;
+
     setActionError(null);
     setActionSuccess(null);
     try {
       await DashboardService.deleteCamp(campNo);
-      setActionSuccess(`Deleted Camp #${campNo}.`);
+      setActionSuccess(`Camp #${campNo} deleted successfully.`);
       fetchCamps();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to delete camp session.');
+      setActionError(err.message || 'Delete operation failed.');
     }
   };
 
-  // Trigger spreadsheet export download
-  const handleExportCamp = (campNo: number) => {
-    const url = `/api/camps/${campNo}/export`;
-    window.open(url, '_blank');
-  };
-
-  // Add doctor manually
-  const handleAddDoctor = async (e: React.FormEvent) => {
+  // Add Manual Doctor
+  const handleAddDoctorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     setActionSuccess(null);
-    if (!docCode || !docName) {
-      setActionError('Doctor Code and Name are required.');
+    if (!isAdmin) return;
+
+    const code = doctorCode.trim().toUpperCase();
+    const name = doctorName.trim();
+    const cNo = parseInt(doctorRosterCampNo.trim());
+
+    if (!code || !name) {
+      setActionError('Doctor Code and Full Name are required.');
+      return;
+    }
+    if (isNaN(cNo) || cNo <= 0) {
+      setActionError('Please specify a valid camp number.');
       return;
     }
 
-    setIsAddingDoc(true);
     try {
-      await DashboardService.addDoctor(docCode.toUpperCase(), docName);
-      setActionSuccess(`Registered Dr. ${docName} (${docCode.toUpperCase()})!`);
-      setDocCode('');
-      setDocName('');
+      await DashboardService.addDoctor(code, name);
+
+      setActionSuccess(`Doctor ${name} (${code}) added to Camp #${cNo}.`);
+      setDoctorCode('');
+      setDoctorName('');
+      setDoctorRosterCampNo('');
+      fetchCamps();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to register doctor.');
-    } finally {
-      setIsAddingDoc(false);
+      setActionError(err.message || 'Doctor setup request failed.');
     }
   };
 
-  // Upload doctor Excel roster
-  const handleRosterUpload = async (e: React.FormEvent) => {
+  // Excel Upload doctor roster lists
+  const handleDoctorExcelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     setActionSuccess(null);
     if (!doctorExcelFile) {
-      setActionError('Please select a doctors .xlsx roster spreadsheet file.');
+      setActionError('Please select an Excel file containing doctors roster.');
       return;
     }
-    if (!uploaderCampNo) {
-      setActionError('Please specify a camp number target.');
+
+    const cNo = parseInt(uploaderCampNo.trim());
+    if (isNaN(cNo) || cNo <= 0) {
+      setActionError('Please specify a target camp session number.');
       return;
     }
 
     setIsUploadingRoster(true);
     try {
-      const res = await DashboardService.importDoctorsExcel(Number(uploaderCampNo), doctorExcelFile);
-      setActionSuccess(
-        `Roster upload complete! Added ${res.imported} doctors (Skipped ${res.skipped} rows).`
-      );
+      const res = await DashboardService.importDoctorsExcel(cNo, doctorExcelFile);
+      setActionSuccess(`Roster uploaded! Configured ${res.imported} doctors (skipped ${res.skipped}) for Camp #${cNo}.`);
       setDoctorExcelFile(null);
-      const fileInput = document.getElementById('doctorExcelFileInput') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      const fileEl = document.getElementById('doctorExcelInput') as HTMLInputElement;
+      if (fileEl) fileEl.value = '';
     } catch (err: any) {
-      setActionError(err.message || 'Doctors roster import failed.');
+      setActionError(err.message || 'Doctor excel import failed.');
     } finally {
       setIsUploadingRoster(false);
     }
@@ -192,11 +211,13 @@ export function CampManager() {
         
         {/* Left Section: Active Camps log registry */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs min-h-[485px] flex flex-col justify-between">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs min-h-[485px] flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-2">
-                <Calendar className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Camps Registry</h3>
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <Calendar className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Camps Registry</h3>
               </div>
 
               {isLoading ? (
@@ -222,14 +243,14 @@ export function CampManager() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {camps.map((camp) => (
-                        <tr key={camp.camp_no} className="hover:bg-slate-50/60 group">
+                        <tr key={camp.camp_no} className="hover:bg-slate-50/50 group">
                           <td className="py-3.5 font-bold text-slate-800">Camp #{camp.camp_no}</td>
                           <td className="py-3.5 text-slate-500 font-medium">
                             {camp.camp_date || 'No scheduled date'}
                           </td>
                           <td className="py-3.5">
                             {camp.active === 1 ? (
-                              <Badge variant="success" className="text-[9px] font-bold uppercase py-0.5 px-2 rounded-full">
+                              <Badge variant="success" className="text-[9px] font-bold uppercase py-0.5 px-2 rounded-full border border-emerald-250 bg-emerald-50 text-emerald-700">
                                 Active Session
                               </Badge>
                             ) : (
@@ -271,10 +292,10 @@ export function CampManager() {
 
                           {/* Export / Delete actions */}
                           <td className="py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-end gap-1 opacity-85 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => handleExportCamp(camp.camp_no)}
-                                className="text-slate-400 hover:text-teal-600 p-1.5 hover:bg-teal-50 rounded-lg cursor-pointer"
+                                className="text-slate-400 hover:text-teal-600 p-1.5 hover:bg-teal-55 rounded-lg cursor-pointer bg-transparent border-0"
                                 title="Export Excel data"
                               >
                                 <Download className="h-4 w-4" />
@@ -282,7 +303,7 @@ export function CampManager() {
                               {isAdmin && (
                                 <button
                                   onClick={() => handleDeleteCamp(camp.camp_no)}
-                                  className="text-slate-300 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                  className="text-slate-300 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg cursor-pointer bg-transparent border-0"
                                   title="Delete Permanent"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -297,110 +318,109 @@ export function CampManager() {
                 </div>
               )}
             </div>
-
           </div>
         </div>
 
-        {/* Right Section: Add camp, Add Doctor, Import roster */}
+        {/* Right Section: Camp session coordinators setup drawers */}
         <div className="lg:col-span-4 space-y-4">
           
-          {/* Card: Register Camp form */}
+          {/* Form: Create new camp session */}
           {isAdmin && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
-                <Plus className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Register Camp</h3>
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <Plus className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">New Camp Session</h3>
               </div>
 
-              <form onSubmit={handleCreateCamp} className="space-y-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Camp ID Number</label>
-                  <Input
-                    type="number"
-                    placeholder="Camp Number e.g. 43"
+              <form onSubmit={handleCreateCamp} className="space-y-4 text-xs">
+                
+                {/* Camp Sequence Index */}
+                <div className="relative">
+                  <input
+                    id="newCampNoInput"
+                    placeholder=" "
                     value={newCampNo}
                     onChange={(e) => setNewCampNo(e.target.value)}
-                    className="bg-slate-50 text-xs py-1.5"
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent"
                   />
+                  <label
+                    htmlFor="newCampNoInput"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Camp Number Index (e.g. 148)
+                  </label>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Scheduled Date</label>
-                  <Input
+                {/* Date Input Selector */}
+                <div className="relative">
+                  <input
+                    id="newCampDateInput"
                     type="date"
+                    placeholder=" "
                     value={newCampDate}
                     onChange={(e) => setNewCampDate(e.target.value)}
-                    className="bg-slate-50 text-xs py-1.5"
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-850 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent"
                   />
+                  <label
+                    htmlFor="newCampDateInput"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Scheduled Date
+                  </label>
                 </div>
 
                 <Button type="submit" variant="primary" className="w-full text-xs py-2 rounded-xl">
-                  Register Camp
+                  Create Camp Session
                 </Button>
               </form>
             </div>
           )}
 
-          {/* Card: Add doctor manually */}
+          {/* Form: Excel Doctors Roster Import */}
           {isAdmin && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
-                <UserPlus className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Add Volunteering Doctor</h3>
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <FileSpreadsheet className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Excel Doctors Roster</h3>
               </div>
 
-              <form onSubmit={handleAddDoctor} className="space-y-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doctor Initials / Code</label>
-                  <Input
-                    placeholder="E.g. AS"
-                    value={docCode}
-                    onChange={(e) => setDocCode(e.target.value)}
-                    maxLength={5}
-                    className="bg-slate-50 text-xs py-1.5 font-mono uppercase"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doctor Name</label>
-                  <Input
-                    placeholder="Dr. Anand Sharma"
-                    value={docName}
-                    onChange={(e) => setDocName(e.target.value)}
-                    className="bg-slate-50 text-xs py-1.5"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full text-xs py-2 rounded-xl"
-                  isLoading={isAddingDoc}
-                >
-                  Add Doctor
-                </Button>
-              </form>
-            </div>
-          )}
-
-          {/* Card: Bulk Import Doctors roster sheet */}
-          {isAdmin && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Import Doctor Roster</h3>
-              </div>
-
-              <form onSubmit={handleRosterUpload} className="space-y-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doctors Spreadsheet (.xlsx)</label>
+              <form onSubmit={handleDoctorExcelSubmit} className="space-y-4 text-xs">
+                
+                {/* Target Camp Session ID */}
+                <div className="relative">
                   <input
-                    id="doctorExcelFileInput"
-                    type="file"
-                    accept=".xlsx"
-                    onChange={(e) => setDoctorExcelFile(e.target.files?.[0] || null)}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer"
+                    id="rosterCampNoInput"
+                    placeholder=" "
+                    value={uploaderCampNo}
+                    onChange={(e) => setUploaderCampNo(e.target.value)}
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent"
                   />
+                  <label
+                    htmlFor="rosterCampNoInput"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Target Camp Session
+                  </label>
+                </div>
+
+                {/* File input container dropzone */}
+                <div className="border-2 border-dashed border-slate-200 hover:border-teal-400 rounded-xl p-4 flex flex-col justify-center items-center text-center cursor-pointer transition-colors bg-slate-50/50">
+                  <Upload className="h-5 w-5 text-slate-400 mb-2" />
+                  <input
+                    id="doctorExcelInput"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={(e) => setDoctorExcelFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                  <label htmlFor="doctorExcelInput" className="text-[10px] font-bold text-teal-700 uppercase tracking-wider cursor-pointer hover:underline">
+                    {doctorExcelFile ? doctorExcelFile.name : 'Select Doctors Spreadsheet'}
+                  </label>
+                  <p className="text-[9px] text-slate-400 mt-1">Supports roster template (.xlsx)</p>
                 </div>
 
                 <Button
@@ -408,13 +428,85 @@ export function CampManager() {
                   variant="primary"
                   className="w-full text-xs py-2 rounded-xl flex items-center justify-center gap-1.5"
                   isLoading={isUploadingRoster}
+                  disabled={!doctorExcelFile}
                 >
                   <Upload className="h-4 w-4" />
-                  Upload Doctor Roster
+                  Upload Doctors Roster
                 </Button>
               </form>
             </div>
           )}
+
+          {/* Form: Manual Doctor additions */}
+          {isAdmin && (
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <UserPlus className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Manual Doctor addition</h3>
+              </div>
+
+              <form onSubmit={handleAddDoctorSubmit} className="space-y-4 text-xs">
+                
+                {/* Doctor Room Code */}
+                <div className="relative">
+                  <input
+                    id="manualDoctorCode"
+                    placeholder=" "
+                    value={doctorCode}
+                    onChange={(e) => setDoctorCode(e.target.value)}
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent font-mono"
+                  />
+                  <label
+                    htmlFor="manualDoctorCode"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Doctor Unique Code (e.g. ENT, GYN)
+                  </label>
+                </div>
+
+                {/* Doctor Full Name */}
+                <div className="relative">
+                  <input
+                    id="manualDoctorName"
+                    placeholder=" "
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent"
+                  />
+                  <label
+                    htmlFor="manualDoctorName"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Doctor Full Name
+                  </label>
+                </div>
+
+                {/* Camp Session Number */}
+                <div className="relative">
+                  <input
+                    id="manualDoctorCampNo"
+                    placeholder=" "
+                    value={doctorRosterCampNo}
+                    onChange={(e) => setDoctorRosterCampNo(e.target.value)}
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-semibold placeholder-transparent"
+                  />
+                  <label
+                    htmlFor="manualDoctorCampNo"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Camp Session Number
+                  </label>
+                </div>
+
+                <Button type="submit" variant="primary" className="w-full text-xs py-2 rounded-xl">
+                  Register Room Doctor
+                </Button>
+              </form>
+            </div>
+          )}
+
         </div>
 
       </div>

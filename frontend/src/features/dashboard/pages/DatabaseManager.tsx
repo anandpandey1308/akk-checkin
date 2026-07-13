@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
 import { DashboardService } from '@/services/dashboard.service';
 import type { Patient, Doctor } from '@/services/dashboard.service';
@@ -15,87 +14,74 @@ import {
   FileSpreadsheet, 
   Star, 
   User, 
-  Phone, 
-  MessageSquare, 
   ListChecks,
   Plus 
 } from 'lucide-react';
 
 export function DatabaseManager() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-
-  // Search state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [patients, setPatients] = React.useState<Patient[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
-
-  // Doctors reference list (for default doctor selection options)
   const [doctors, setDoctors] = React.useState<Doctor[]>([]);
 
-  // Editing state
+  // Editing Patient defaults state
   const [editingPatient, setEditingPatient] = React.useState<Patient | null>(null);
   const [editContact, setEditContact] = React.useState('');
   const [editDoctor, setEditDoctor] = React.useState('');
   const [editComment, setEditComment] = React.useState('');
   const [editPriority, setEditPriority] = React.useState(false);
 
-  // Excel Bulk Uploader state
+  // Bulk Excel imports state
   const [excelFile, setExcelFile] = React.useState<File | null>(null);
-  const [importCampNo, setImportCampNo] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
 
-  // Bulk Priority Textarea state
+  // Bulk Priorities Star copy-paste state
   const [bulkPriorityText, setBulkPriorityText] = React.useState('');
   const [isProcessingBulk, setIsProcessingBulk] = React.useState(false);
 
-  // Success/Error notifications
+  // Notifications
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
 
-  // Initialize: load doctors and active camp sessions
+  // Load doctors list on mount
   React.useEffect(() => {
-    const init = async () => {
+    const fetchDoctors = async () => {
       try {
-        const docRes = await DashboardService.getDoctorsList();
-        setDoctors(docRes.doctors);
-        
         const state = await DashboardService.getState();
-        if (state.activeCamp) {
-          setImportCampNo(String(state.activeCamp.camp_no));
-        }
+        setDoctors(state.doctors);
       } catch (err: any) {
-        console.error('Failed to initialize database settings:', err);
+        console.error('Failed to pre-fetch doctors list.', err);
       }
     };
-    init();
+    fetchDoctors();
   }, []);
 
-  // Handle live patient searches
+  // Handle patient lookup query
   const handleSearch = React.useCallback(async (query: string) => {
     const q = query.trim();
     if (!q) {
       setPatients([]);
       return;
     }
+
     setIsSearching(true);
     setActionError(null);
     try {
       const res = await DashboardService.searchPatients(q);
       setPatients(res.patients);
     } catch (err: any) {
-      setActionError(err.message || 'Patient lookup search failed.');
+      setActionError(err.message || 'Lookup search query failed.');
     } finally {
       setIsSearching(false);
     }
   }, []);
 
-  // Debounce search query changes
+  // Debounce search input changes
   React.useEffect(() => {
-    const delayDebounce = setTimeout(() => {
+    const timer = setTimeout(() => {
       handleSearch(searchQuery);
-    }, 350);
-    return () => clearTimeout(delayDebounce);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [searchQuery, handleSearch]);
 
   // Save patient record edits
@@ -128,42 +114,38 @@ export function DatabaseManager() {
   };
 
   // Excel Bulk Import Patients
-  const handleExcelImport = async (e: React.FormEvent) => {
+  const handleExcelImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
     setActionSuccess(null);
     if (!excelFile) {
-      setActionError('Please select a patients .xlsx spreadsheet file first.');
-      return;
-    }
-    if (!importCampNo) {
-      setActionError('Please specify a camp number to tag these patient records.');
+      setActionError('Please select a valid Excel file (.xlsx or .xls).');
       return;
     }
 
+    const activeCampNoStr = localStorage.getItem('akk_active_camp_no');
+    if (!activeCampNoStr) {
+      setActionError('No active camp session! Set active camp session first under Camp Sessions.');
+      return;
+    }
+    const campNo = parseInt(activeCampNoStr);
+
     setIsUploading(true);
     try {
-      const res = await DashboardService.importPatientsExcel(Number(importCampNo), excelFile);
-      setActionSuccess(
-        `Import complete! Registered ${res.imported} patients (Skipped ${res.skipped} rows).`
-      );
-      if (res.unknownDoctorCodes.length > 0) {
-        setActionError(
-          `Skipped rows with unknown doctor codes: ${res.unknownDoctorCodes.join(', ')}`
-        );
-      }
+      const res = await DashboardService.importPatientsExcel(campNo, excelFile);
+      setActionSuccess(`Import completed! Added ${res.imported} and skipped ${res.skipped} patients.`);
       setExcelFile(null);
-      // Reset file input
-      const fileInput = document.getElementById('excelFileInput') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      // Clear file inputs
+      const fileEl = document.getElementById('excelFileInput') as HTMLInputElement;
+      if (fileEl) fileEl.value = '';
     } catch (err: any) {
-      setActionError(err.message || 'File upload parsing failed.');
+      setActionError(err.message || 'Excel upload import request failed.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  // Bulk Priority Textarea Submit
+  // Bulk priority apply
   const handleBulkPrioritySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
@@ -203,16 +185,18 @@ export function DatabaseManager() {
         
         {/* Left Columns: Directory Lookup list & Inline editor */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
             
             {/* Search Input bar */}
-            <div className="border-b border-slate-100 pb-4 mb-4 flex justify-between items-center gap-4">
+            <div className="border-b border-slate-100 pb-4 mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Patient Directory</h3>
+                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                  <Database className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Patient Directory</h3>
               </div>
               
-              <div className="relative w-64">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search by name, GK card..."
@@ -226,20 +210,23 @@ export function DatabaseManager() {
             {/* Patients list details grid */}
             <div className="flex-1 overflow-x-auto">
               {!searchQuery ? (
-                <div className="h-full flex flex-col justify-center items-center py-12 text-slate-400 text-center">
+                <div className="h-full flex flex-col justify-center items-center py-16 text-slate-400 text-center">
                   <Search className="h-10 w-10 text-slate-300 mb-3" />
-                  <p className="text-sm font-semibold">Patient lookup database</p>
-                  <p className="text-xs text-slate-400 mt-1">Type in a patient's name or GK card number above to search</p>
+                  <p className="text-sm font-semibold text-slate-800">Patient lookup database</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                    Type in a patient's name or GK card number in the search bar above to look up records.
+                  </p>
                 </div>
               ) : isSearching ? (
-                <div className="h-full flex flex-col justify-center items-center py-12 text-slate-400 text-center">
+                <div className="h-full flex flex-col justify-center items-center py-16 text-slate-400 text-center">
                   <div className="h-8 w-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mb-3" />
                   <p className="text-xs font-semibold">Searching patient roster...</p>
                 </div>
               ) : patients.length === 0 ? (
-                <div className="h-full flex flex-col justify-center items-center py-12 text-slate-400 text-center">
-                  <X className="h-8 w-8 text-rose-300 mb-2" />
-                  <p className="text-xs font-semibold">No records found matching query</p>
+                <div className="h-full flex flex-col justify-center items-center py-16 text-slate-400 text-center">
+                  <X className="h-8 w-8 text-rose-400 mb-2" />
+                  <p className="text-xs font-semibold text-slate-850">No records found matching query</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Check spelling or create records via Excel upload.</p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">
@@ -254,7 +241,7 @@ export function DatabaseManager() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {patients.map((pat) => (
-                      <tr key={pat.gk} className="hover:bg-slate-50/60 group">
+                      <tr key={pat.gk} className="hover:bg-slate-50/50 group">
                         <td className="py-3.5 font-mono font-bold text-teal-700">{pat.gk}</td>
                         <td className="py-3.5">
                           <div className="flex items-center gap-1.5">
@@ -267,7 +254,7 @@ export function DatabaseManager() {
                             <p className="text-[10px] text-slate-400 mt-0.5">{pat.contact}</p>
                           )}
                         </td>
-                        <td className="py-3.5 text-slate-600 font-medium">
+                        <td className="py-3.5 text-slate-600 font-semibold">
                           {pat.doctorName || pat.doctor || 'Unassigned'}
                         </td>
                         <td className="py-3.5 text-slate-500 italic max-w-xs truncate" title={pat.comment}>
@@ -296,10 +283,12 @@ export function DatabaseManager() {
           
           {/* Section: Patient details editor drawer/card */}
           {editingPatient && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4 animate-in slide-in-from-right duration-200">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4 animate-in slide-in-from-right duration-200">
               <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <User className="h-4.5 w-4.5 text-teal-600" />
+                  <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                    <User className="h-4.5 w-4.5" />
+                  </div>
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Edit Record</h4>
                 </div>
                 <button 
@@ -310,38 +299,42 @@ export function DatabaseManager() {
                 </button>
               </div>
 
-              <div className="space-y-3.5 text-xs">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">GK Card Number</p>
-                  <p className="font-mono font-bold text-slate-700 mt-0.5">{editingPatient.gk}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Patient Name</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{editingPatient.name}</p>
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 border border-slate-200/50 rounded-xl p-3">
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">GK Card Number</span>
+                    <span className="font-mono font-bold text-slate-700 block mt-0.5">{editingPatient.gk}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Patient Name</span>
+                    <span className="font-bold text-slate-850 block mt-0.5">{editingPatient.name}</span>
+                  </div>
                 </div>
 
-                {/* Contact phone field */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Phone className="h-3.5 w-3.5" /> Mobile Contact
-                  </label>
-                  <Input
-                    placeholder="Enter phone..."
+                {/* Contact phone field (Floating label) */}
+                <div className="relative">
+                  <input
+                    id="editContactInput"
+                    placeholder=" "
                     value={editContact}
                     onChange={(e) => setEditContact(e.target.value)}
-                    className="bg-slate-50 text-xs py-1.5"
+                    className="peer w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 pt-3.5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-medium placeholder-transparent"
                   />
+                  <label
+                    htmlFor="editContactInput"
+                    className="absolute left-3 top-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-1.5 peer-focus:text-[9px]"
+                  >
+                    Mobile Contact Number
+                  </label>
                 </div>
 
                 {/* Doctor dropdown field */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <User className="h-3.5 w-3.5" /> Assigned Doctor
-                  </label>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block px-1">Assigned Doctor</label>
                   <select
                     value={editDoctor}
                     onChange={(e) => setEditDoctor(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:bg-white focus:border-teal-500 focus:outline-none transition-colors"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-xs font-medium focus:bg-white focus:border-teal-500 focus:outline-none transition-colors cursor-pointer"
                   >
                     <option value="">Unassigned...</option>
                     {doctors.map((d) => (
@@ -353,22 +346,26 @@ export function DatabaseManager() {
                   </select>
                 </div>
 
-                {/* Comments text block */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <MessageSquare className="h-3.5 w-3.5" /> Case History / Comments
-                  </label>
+                {/* Comments box (Floating label) */}
+                <div className="relative">
                   <textarea
-                    placeholder="Describe symptoms, priorities..."
+                    id="editCommentInput"
+                    placeholder=" "
                     value={editComment}
                     onChange={(e) => setEditComment(e.target.value)}
-                    rows={3}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:bg-white focus:border-teal-500 focus:outline-none transition-colors"
+                    rows={2}
+                    className="peer w-full bg-slate-50 border border-slate-200 rounded-xl px-3 pt-4 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-medium placeholder-transparent resize-none"
                   />
+                  <label
+                    htmlFor="editCommentInput"
+                    className="absolute left-3 top-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-2 peer-focus:text-[9px]"
+                  >
+                    Consultation Comments
+                  </label>
                 </div>
 
                 {/* Priority star checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer select-none font-semibold text-slate-700 px-1">
                   <input
                     type="checkbox"
                     checked={editPriority}
@@ -376,77 +373,84 @@ export function DatabaseManager() {
                     className="text-teal-600 rounded-md focus:ring-teal-500"
                   />
                   <Star className={`h-4.5 w-4.5 ${editPriority ? 'text-amber-500 fill-amber-500' : 'text-slate-300'}`} />
-                  Set Default Priority status
+                  Set Default Priority
                 </label>
 
-                <Button variant="primary" className="w-full text-xs py-2 rounded-xl mt-2" onClick={handleSaveEdits}>
-                  Save Defaults
-                </Button>
+                <div className="flex gap-2.5 pt-1">
+                  <Button variant="outline" className="flex-1 text-xs py-2 rounded-xl bg-white border-slate-200 text-slate-600" onClick={() => setEditingPatient(null)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" className="flex-1 text-xs py-2 rounded-xl" onClick={handleSaveEdits}>
+                    Save Defaults
+                  </Button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Section: Bulk Excel Patients spreadsheet imports */}
-          {isAdmin && (
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
-              <div className="flex items-center gap-2 mb-4">
-                <FileSpreadsheet className="h-5 w-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Excel Data Importer</h3>
-              </div>
-
-              <form onSubmit={handleExcelImport} className="space-y-3.5 text-xs">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Camp Number Tag</label>
-                  <Input
-                    type="number"
-                    placeholder="Camp ID e.g. 42"
-                    value={importCampNo}
-                    onChange={(e) => setImportCampNo(e.target.value)}
-                    className="bg-slate-50 text-xs py-1.5"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Patients Spreadsheet (.xlsx)</label>
-                  <input
-                    id="excelFileInput"
-                    type="file"
-                    accept=".xlsx"
-                    onChange={(e) => setExcelFile(e.target.files?.[0] || null)}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 cursor-pointer"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full text-xs py-2 rounded-xl flex items-center justify-center gap-1.5"
-                  isLoading={isUploading}
-                >
-                  <Upload className="h-4 w-4" />
-                  Import Patients Sheet
-                </Button>
-              </form>
-            </div>
-          )}
-
-          {/* Section: Bulk priority paste box */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs">
+          {/* Section: Bulk Patient Excel Upload */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
             <div className="flex items-center gap-2 mb-4">
-              <ListChecks className="h-5 w-5 text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Bulk Priority Star</h3>
+              <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                <FileSpreadsheet className="h-4.5 w-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Excel Patient Directory</h3>
             </div>
 
-            <form onSubmit={handleBulkPrioritySubmit} className="space-y-3.5 text-xs">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pasted GK Card Numbers</label>
+            <form onSubmit={handleExcelImportSubmit} className="space-y-3.5">
+              <div className="border-2 border-dashed border-slate-200 hover:border-teal-400 rounded-xl p-4 flex flex-col justify-center items-center text-center cursor-pointer transition-colors bg-slate-50/50">
+                <Upload className="h-6 w-6 text-slate-400 mb-2" />
+                <input
+                  id="excelFileInput"
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={(e) => setExcelFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <label htmlFor="excelFileInput" className="text-[10px] font-bold text-teal-700 uppercase tracking-wider cursor-pointer hover:underline">
+                  {excelFile ? excelFile.name : 'Select Directory Spreadsheet'}
+                </label>
+                <p className="text-[9px] text-slate-400 mt-1">Supports bulk rows (.xlsx, .xls)</p>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full text-xs py-2 rounded-xl flex items-center justify-center gap-1.5"
+                isLoading={isUploading}
+                disabled={!excelFile}
+              >
+                <Upload className="h-4 w-4" />
+                Import Patient Roster
+              </Button>
+            </form>
+          </div>
+
+          {/* Section: Bulk Star Priorities pasting area */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-lg text-teal-600">
+                <ListChecks className="h-4.5 w-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Bulk Star Priorities</h3>
+            </div>
+
+            <form onSubmit={handleBulkPrioritySubmit} className="space-y-3.5">
+              <div className="relative">
                 <textarea
-                  placeholder="Paste GK card numbers (one card ID per line, e.g. GK/4201)..."
+                  id="bulkPriorityArea"
+                  placeholder=" "
                   value={bulkPriorityText}
                   onChange={(e) => setBulkPriorityText(e.target.value)}
-                  rows={4}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:bg-white focus:border-teal-500 focus:outline-none font-mono"
+                  rows={3}
+                  className="peer w-full bg-slate-50 border border-slate-200 rounded-xl px-3 pt-5 text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all text-xs font-medium placeholder-transparent resize-none font-mono"
                 />
+                <label
+                  htmlFor="bulkPriorityArea"
+                  className="absolute left-3 top-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-xs peer-placeholder-shown:top-3 peer-focus:top-2 peer-focus:text-[9px]"
+                >
+                  Paste GK Card ID lists (One per line)
+                </label>
               </div>
 
               <Button
@@ -454,12 +458,14 @@ export function DatabaseManager() {
                 variant="primary"
                 className="w-full text-xs py-2 rounded-xl flex items-center justify-center gap-1.5"
                 isLoading={isProcessingBulk}
+                disabled={!bulkPriorityText.trim()}
               >
                 <Plus className="h-4 w-4" />
                 Apply Star Priority
               </Button>
             </form>
           </div>
+
         </div>
 
       </div>
