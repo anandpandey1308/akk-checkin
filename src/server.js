@@ -10,6 +10,9 @@ initializeDatabase();
 const app = express();
 const PORT = process.env.PORT || 3004;
 
+// Trust the proxy (Fly.io edge router) to allow secure session cookies over HTTPS
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: '2mb' }));
 
 app.use(session({
@@ -38,7 +41,41 @@ app.use('/api/doctors', require('./routes/doctors'));
 app.use('/api/public', require('./routes/public')); // no session middleware — token-gated instead
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const dbPath = path.join(__dirname, '..', 'data', 'akk_checkin.db');
+  let dbSize = 'unknown';
+  let dbExists = false;
+
+  try {
+    if (fs.existsSync(dbPath)) {
+      dbExists = true;
+      const stats = fs.statSync(dbPath);
+      dbSize = `${(stats.size / 1024 / 1024).toFixed(2)} MB`;
+    }
+  } catch (error) {
+    dbSize = `error: ${error.message}`;
+  }
+
+  const memoryUsage = process.memoryUsage();
+
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: `${process.uptime().toFixed(1)}s`,
+    database: {
+      exists: dbExists,
+      size: dbSize,
+      path: dbPath
+    },
+    system: {
+      nodeVersion: process.version,
+      platform: process.platform,
+      memory: {
+        rss: `${(memoryUsage.rss / 1024 / 1024).toFixed(1)} MB`,
+        heapTotal: `${(memoryUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`,
+        heapUsed: `${(memoryUsage.heapUsed / 1024 / 1024).toFixed(1)} MB`
+      }
+    }
+  });
 });
 
 // Static frontend build (populated by `vite build` → copied here at deploy time)

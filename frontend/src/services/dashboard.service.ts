@@ -106,6 +106,11 @@ export const DashboardService = {
     return res.data;
   },
 
+  deleteDoctor: async (code: string): Promise<{ success: boolean; message: string }> => {
+    const res = await api.delete<{ success: boolean; message: string }>(`/doctors/${code}`);
+    return res.data;
+  },
+
   reorderDoctors: async (codes: string[]): Promise<{ doctors: Doctor[] }> => {
     const res = await api.patch<{ doctors: Doctor[] }>('/doctors/reorder', { codes });
     return res.data;

@@ -68,4 +68,17 @@ router.patch('/:code', requireAdmin, (req, res) => {
   res.json({ doctor: { code: doctor.doctor_code, name: doctor.doctor_name, active: !!doctor.active, displayHidden: !!doctor.display_hidden, callingHidden: !!doctor.calling_hidden } });
 });
 
+router.delete('/:code', requireAdmin, (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const db = getDb();
+  
+  db.transaction(() => {
+    db.prepare('DELETE FROM doctors WHERE doctor_code = ?').run(code);
+    db.prepare('DELETE FROM doc_states WHERE doctor_code = ?').run(code);
+    db.prepare('DELETE FROM q_counters WHERE doctor_code = ?').run(code);
+  })();
+  
+  res.json({ success: true, message: `Doctor ${code} removed successfully.` });
+});
+
 module.exports = router;

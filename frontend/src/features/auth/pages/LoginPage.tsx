@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User as UserIcon, Lock, ArrowRight, ShieldCheck, X, ShieldAlert, HeartPulse } from 'lucide-react';
+import { User as UserIcon, Lock, ArrowRight, ShieldCheck, X, ShieldAlert } from 'lucide-react';
 import { loginSchema } from '../schemas/auth.schema';
 import type { LoginCredentials } from '../schemas/auth.schema';
 import { useAuth } from '@/context/AuthContext';
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import type { ApiError } from '@/types';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -103,74 +104,7 @@ export function LoginPage() {
 
   // Render Premium Healthcare Session Synced Loader
   if (showLoadingScreen) {
-    return (
-      <div className="w-full flex flex-col justify-between py-2 text-left">
-        <Card className="border border-slate-200/60 bg-white rounded-[20px] shadow-[0_24px_80px_-20px_rgba(15,23,42,0.08)] overflow-hidden h-[476px] flex flex-col items-center justify-center p-8 sm:p-12 select-none">
-          <motion.div
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="text-center flex flex-col items-center"
-          >
-            {/* Halo pulse medical icon */}
-            <div className="relative mb-6">
-              <span className="absolute inset-0 rounded-2xl bg-teal-150 animate-ping opacity-25"></span>
-              <div className="w-16 h-16 bg-teal-50 border border-teal-100 rounded-2xl flex items-center justify-center text-brand-primary relative shadow-xs">
-                <HeartPulse className="h-8.5 w-8.5 stroke-[1.8] animate-pulse" />
-              </div>
-            </div>
-
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
-              Syncing Session
-            </h3>
-            
-            {/* Animated linear progress bar */}
-            <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden mb-6 mt-4 relative">
-              <motion.div
-                className="h-full bg-brand-primary rounded-full"
-                initial={{ width: '0%' }}
-                animate={{ width: loadingStep === 0 ? '35%' : loadingStep === 1 ? '70%' : '100%' }}
-                transition={{ duration: 0.5, ease: 'easeInOut' }}
-              />
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={loadingStep}
-                initial={{ y: 5, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -5, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="text-sm font-bold text-slate-500 min-h-[20px]"
-              >
-                {steps[loadingStep]}
-              </motion.p>
-            </AnimatePresence>
-          </motion.div>
-        </Card>
-
-        {/* Structured Footer remains visual-locked */}
-        <div className="mt-8 text-center text-xs text-slate-400 font-semibold select-none">
-          <div className="max-w-[440px] mx-auto">
-            <hr className="border-slate-200 mb-4" />
-            <div className="flex justify-between items-center text-[10px] text-slate-400 uppercase tracking-widest">
-              <span>Version 2.0</span>
-              <span>Powered by Gopal Kiran Nyaas</span>
-            </div>
-            <div className="flex justify-between items-center text-slate-400 mt-2 text-[11px] font-medium">
-              <div className="flex gap-1.5 items-center">
-                <a href="#" className="hover:text-brand-primary transition-colors">Privacy Policy</a>
-                <span>&bull;</span>
-                <a href="#" className="hover:text-brand-primary transition-colors">Support</a>
-                <span>&bull;</span>
-                <a href="#" className="hover:text-brand-primary transition-colors">Documentation</a>
-              </div>
-              <span>&copy; {new Date().getFullYear()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message={steps[loadingStep]} />;
   }
 
   return (

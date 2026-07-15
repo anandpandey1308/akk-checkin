@@ -10,6 +10,7 @@ import { DatabaseManager } from '@/features/dashboard/pages/DatabaseManager';
 import { BarcodePrinter } from '@/features/dashboard/pages/BarcodePrinter';
 import { CampManager } from '@/features/dashboard/pages/CampManager';
 import { DoctorManager } from '@/features/dashboard/pages/DoctorManager';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 /**
  * Route guard for pages requiring authentication
@@ -19,12 +20,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-brand-bg text-slate-600 gap-4">
-        <div className="h-10 w-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
-        <p className="font-semibold text-sm">Verifying secure session...</p>
-      </div>
-    );
+    return <LoadingScreen message="Verifying secure session..." />;
   }
 
   if (!isAuthenticated) {
@@ -41,12 +37,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-brand-bg text-slate-600 gap-4">
-        <div className="h-10 w-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
-        <p className="font-semibold text-sm">Verifying secure session...</p>
-      </div>
-    );
+    return <LoadingScreen message="Verifying secure session..." />;
   }
 
   if (isAuthenticated) {

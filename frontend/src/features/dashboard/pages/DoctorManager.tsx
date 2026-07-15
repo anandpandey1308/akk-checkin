@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardService } from '@/services/dashboard.service';
 import { useToast } from '@/context/ToastContext';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import type { Doctor } from '@/services/dashboard.service';
 import { 
   UserPlus, 
@@ -10,7 +11,8 @@ import {
   Eye, 
   EyeOff, 
   UserCheck,
-  LayoutGrid
+  LayoutGrid,
+  Trash2
 } from 'lucide-react';
 
 export function DoctorManager() {
@@ -20,6 +22,10 @@ export function DoctorManager() {
 
   const [doctors, setDoctors] = React.useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+
+  // Confirmation Modal state
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
+  const [doctorToDelete, setDoctorToDelete] = React.useState<string | null>(null);
 
   // Add doctor form state
   const [newCode, setNewCode] = React.useState('');
@@ -104,6 +110,26 @@ export function DoctorManager() {
     }
   };
 
+  const triggerDeleteDoctor = (code: string) => {
+    if (!isAdmin) return;
+    setDoctorToDelete(code);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteDoctor = async () => {
+    if (doctorToDelete === null || !isAdmin) return;
+
+    try {
+      await DashboardService.deleteDoctor(doctorToDelete);
+      toast(`Doctor ${doctorToDelete} removed from roster successfully.`, 'success');
+      fetchDoctors();
+    } catch (err: any) {
+      toast(err.message || 'Delete operation failed.', 'error');
+    } finally {
+      setDoctorToDelete(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -138,7 +164,7 @@ export function DoctorManager() {
                         <th className="py-2.5">Doctor Full Name</th>
                         <th className="py-2.5">Calling Screen</th>
                         <th className="py-2.5">TV Board</th>
-                        {isAdmin && <th className="py-2.5 text-right">Reorder</th>}
+                        {isAdmin && <th className="py-2.5 text-right">Actions</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -205,7 +231,7 @@ export function DoctorManager() {
                                 <button
                                   disabled={idx === 0}
                                   onClick={() => handleMoveDoctor(idx, 'up')}
-                                  className="text-slate-400 hover:text-teal-600 disabled:opacity-30 disabled:hover:text-slate-400 p-1 hover:bg-slate-100 rounded-lg cursor-pointer bg-transparent border-0 transition-colors"
+                                  className="text-slate-400 hover:text-teal-650 disabled:opacity-30 disabled:hover:text-slate-400 p-1 hover:bg-slate-100 rounded-lg cursor-pointer bg-transparent border-0 transition-colors"
                                   title="Move Up"
                                 >
                                   <ArrowUp className="h-3.5 w-3.5" />
@@ -213,10 +239,17 @@ export function DoctorManager() {
                                 <button
                                   disabled={idx === doctors.length - 1}
                                   onClick={() => handleMoveDoctor(idx, 'down')}
-                                  className="text-slate-400 hover:text-teal-600 disabled:opacity-30 disabled:hover:text-slate-400 p-1 hover:bg-slate-100 rounded-lg cursor-pointer bg-transparent border-0 transition-colors"
+                                  className="text-slate-400 hover:text-teal-650 disabled:opacity-30 disabled:hover:text-slate-400 p-1 hover:bg-slate-100 rounded-lg cursor-pointer bg-transparent border-0 transition-colors"
                                   title="Move Down"
                                 >
                                   <ArrowDown className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => triggerDeleteDoctor(doc.code)}
+                                  className="text-slate-350 hover:text-rose-650 p-1 hover:bg-rose-50 rounded-lg cursor-pointer bg-transparent border-0 transition-colors"
+                                  title="Remove Doctor permanently"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -295,6 +328,20 @@ export function DoctorManager() {
         )}
 
       </div>
+
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        title="Remove Doctor"
+        message={`Permanently remove Doctor ${doctorToDelete} and delete all associated rooms display logs? This cannot be undone!`}
+        confirmLabel="Remove Permanently"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDeleteDoctor}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDoctorToDelete(null);
+        }}
+        isDanger
+      />
     </div>
   );
 }
