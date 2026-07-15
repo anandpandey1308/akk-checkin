@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Clock,
-  UserCog
+  UserCog,
+  WifiOff
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -29,6 +30,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [activeCampName, setActiveCampName] = React.useState<string | null>(null);
   const [timeLeft, setTimeLeft] = React.useState(900); // 15 minutes session
+  const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+
+  React.useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   React.useEffect(() => {
     const cached = localStorage.getItem('akk_active_camp_no');
@@ -319,6 +332,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Offline Alert Banner */}
+      {!isOnline && (
+        <div className="fixed bottom-6 right-6 bg-rose-650/95 backdrop-blur-md text-white font-bold text-xs py-3.5 px-5 rounded-2xl shadow-xl border border-rose-500/20 flex items-center gap-3 z-50 animate-bounce select-none">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+          </span>
+          <div className="flex items-center gap-1.5">
+            <WifiOff className="h-4 w-4 shrink-0 text-white" />
+            <span>Connection Interrupted — Working Offline</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

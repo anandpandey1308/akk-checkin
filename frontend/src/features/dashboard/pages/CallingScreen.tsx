@@ -2,17 +2,81 @@ import * as React from 'react';
 import { DashboardService } from '@/services/dashboard.service';
 import type { LogEntry, Doctor, CallQueueEntry } from '@/services/dashboard.service';
 import { Alert } from '@/components/ui/Alert';
-import { 
-  PhoneCall, 
-  Volume2, 
-  VolumeX, 
-  Trash2, 
+import {
+  PhoneCall,
+  Volume2,
+  VolumeX,
+  Trash2,
   Star,
   Activity,
   Play,
   CheckCircle2,
   UserCheck
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Dual-tone synthesizer bell chime (Web Audio API)
+function playBellChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+
+      gain.gain.setValueAtTime(0.5, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + duration);
+    };
+
+    // Ding (C5) and Dong (G4) chime sound effect
+    playTone(523.25, ctx.currentTime, 0.8);
+    playTone(392.00, ctx.currentTime + 0.3, 1.2);
+  } catch (e) {
+    console.error('Failed to play bell chime:', e);
+  }
+}
+
+// Text-to-speech announcement (SpeechSynthesis API)
+function speakText(text: string, voiceName?: string) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.85; // slightly slower for crowded camps
+    utterance.pitch = 1.0;
+    
+    const voices = window.speechSynthesis.getVoices();
+    if (voiceName) {
+      const selected = voices.find(v => v.name === voiceName);
+      if (selected) {
+        utterance.voice = selected;
+      }
+    } else {
+      const cleanLang = (lang: string) => lang.toLowerCase().replace('_', '-');
+      const preferredVoice = 
+        voices.find(v => cleanLang(v.lang).includes('en-in')) ||
+        voices.find(v => cleanLang(v.lang).includes('hi-in')) ||
+        voices.find(v => cleanLang(v.lang).includes('en-us')) ||
+        voices[0];
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+    }
+    
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.error('Speech synthesis failed:', e);
+  }
+}
 
 export function CallingScreen() {
   const [log, setLog] = React.useState<LogEntry[]>([]);
@@ -21,6 +85,79 @@ export function CallingScreen() {
   const [callQueue, setCallQueue] = React.useState<CallQueueEntry[]>([]);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
+
+  // Audio & Notification states
+  const [isMuted, setIsMuted] = React.useState(false);
+  const [voices, setVoices] = React.useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = React.useState<string>('');
+  const previousCallQueueRef = React.useRef<CallQueueEntry[]>([]);
+
+  // Trigger audio announcement for any new ringing patient call
+  React.useEffect(() => {
+    if (isMuted) {
+      previousCallQueueRef.current = callQueue;
+      return;
+    }
+
+    const prevRingingIds = new Set(
+      previousCallQueueRef.current
+        .filter(c => c.status === 'ringing')
+        .map(c => c.id)
+    );
+
+    const newRingingCalls = callQueue.filter(
+      c => c.status === 'ringing' && !prevRingingIds.has(c.id)
+    );
+
+    if (newRingingCalls.length > 0) {
+      newRingingCalls.forEach(call => {
+        playBellChime();
+        setTimeout(() => {
+          const docIndex = doctors.findIndex(d => d.code === call.docCode);
+          const roomLabel = docIndex !== -1 ? `Room ${docIndex + 1}` : `Room ${call.docCode}`;
+          const tokenSpoken = (call.queue || '').replace(/([A-Za-z])/g, '$1 ').replace(/([0-9])/g, ' $1').trim();
+          const text = `Token ${tokenSpoken}. ${call.name}. Please proceed to ${roomLabel}.`;
+          speakText(text, selectedVoiceName);
+        }, 650);
+      });
+    }
+
+    previousCallQueueRef.current = callQueue;
+  }, [callQueue, isMuted, doctors, selectedVoiceName]);
+
+  // Voice engine list initialization
+  React.useEffect(() => {
+    const updateVoices = () => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      const allVoices = window.speechSynthesis.getVoices();
+      
+      const relevantVoices = allVoices.filter(v => {
+        const lang = v.lang.toLowerCase().replace('_', '-');
+        return lang.startsWith('en') || lang.startsWith('hi');
+      });
+      setVoices(relevantVoices);
+
+      if (relevantVoices.length > 0) {
+        const defaultVoice = 
+          relevantVoices.find(v => v.lang.toLowerCase().replace('_', '-').includes('en-in')) ||
+          relevantVoices.find(v => v.lang.toLowerCase().replace('_', '-').includes('hi-in')) ||
+          relevantVoices.find(v => v.lang.toLowerCase().replace('_', '-').includes('en-us')) ||
+          relevantVoices[0];
+        
+        setSelectedVoiceName(prev => prev || defaultVoice.name);
+      }
+    };
+
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   // Fetch state
   const fetchData = React.useCallback(async () => {
@@ -59,7 +196,7 @@ export function CallingScreen() {
     setActionSuccess(null);
     try {
       const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-      
+
       await DashboardService.dispatchCall({
         id: Date.now(),
         docCode,
@@ -96,12 +233,12 @@ export function CallingScreen() {
   const handleCompleteConsultation = async (docCode: string, callId: number, gkCode: string) => {
     try {
       const matchingLog = log.find((l) => l.gk === gkCode && l.status === 'called');
-      
+
       await DashboardService.updateCallStatus(callId, 'done');
       if (matchingLog) {
         await DashboardService.updateLogStatus(matchingLog.id, { status: 'completed' });
       }
-      
+
       await DashboardService.updateDoctorState(docCode, 'idle');
       setActionSuccess(`Room ${docCode} is now idle.`);
       fetchData();
@@ -140,7 +277,7 @@ export function CallingScreen() {
       {actionSuccess && <Alert variant="success" onClose={() => setActionSuccess(null)}>{actionSuccess}</Alert>}
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        
+
         {/* Left Section: Doctor Consultation Terminals */}
         <div className="xl:col-span-8">
           <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
@@ -180,8 +317,8 @@ export function CallingScreen() {
                 else if (currentState === 'absent') badgeColor = 'bg-slate-100 text-slate-450 border-slate-200';
 
                 return (
-                  <div 
-                    key={doc.code} 
+                  <div
+                    key={doc.code}
                     className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 px-3 rounded-xl"
                   >
                     {/* Left Column: Doctor Details & Presence Toggle Switch */}
@@ -199,11 +336,10 @@ export function CallingScreen() {
                           {/* Sleek Presence Toggle Button */}
                           <button
                             onClick={() => handleToggleDoctorPresence(doc.code, currentState)}
-                            className={`text-[9px] font-bold uppercase transition-colors cursor-pointer select-none leading-none border-b border-dotted ${
-                              currentState === 'absent' 
-                                ? 'text-teal-650 hover:text-teal-700 border-teal-300' 
+                            className={`text-[9px] font-bold uppercase transition-colors cursor-pointer select-none leading-none border-b border-dotted ${currentState === 'absent'
+                                ? 'text-teal-650 hover:text-teal-700 border-teal-300'
                                 : 'text-slate-400 hover:text-slate-600 border-slate-300'
-                            }`}
+                              }`}
                             title={currentState === 'absent' ? "Click to set Doctor On-site" : "Click to set Doctor Away"}
                           >
                             {currentState === 'absent' ? "Set On-site" : "Set Away"}
@@ -220,11 +356,10 @@ export function CallingScreen() {
                         </span>
                       ) : activeCall ? (
                         <div className="flex items-center gap-2.5">
-                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border select-none ${
-                            activeCall.status === 'ringing'
+                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border select-none ${activeCall.status === 'ringing'
                               ? 'bg-amber-50 border-amber-200 text-amber-700 animate-pulse'
                               : 'bg-teal-50 border-teal-100 text-teal-800'
-                          }`}>
+                            }`}>
                             {activeCall.status === 'ringing' ? 'Calling' : 'Treating'}
                           </span>
                           <span className="font-mono font-black text-[10px] text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg shadow-3xs leading-none">
@@ -268,7 +403,16 @@ export function CallingScreen() {
                           activeCall.status === 'ringing' ? (
                             <div className="flex gap-2 w-full">
                               <button
-                                onClick={() => handleCallPatient(doc.code, { gk: activeCall.gk, name: activeCall.name, queue: activeCall.queue, priority: activeCall.priority } as any)}
+                                onClick={() => {
+                                  const matchingLog = log.find((l) => l.gk === activeCall.gk && l.status === 'called');
+                                  handleCallPatient(doc.code, {
+                                    id: matchingLog?.id,
+                                    gk: activeCall.gk,
+                                    name: activeCall.name,
+                                    queue: activeCall.queue,
+                                    priority: activeCall.priority
+                                  } as any);
+                                }}
                                 className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold text-[10px] py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-3xs"
                               >
                                 <Volume2 className="h-3.5 w-3.5 text-slate-450" />
@@ -328,16 +472,45 @@ export function CallingScreen() {
                   )}
                 </div>
               </div>
-              
-              {callQueue.length > 0 && (
+
+              <div className="flex items-center gap-2">
+                {/* Voice Selection Dropdown */}
+                {voices.length > 0 && !isMuted && (
+                  <select
+                    value={selectedVoiceName}
+                    onChange={(e) => setSelectedVoiceName(e.target.value)}
+                    className="bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-[9px] font-bold text-slate-600 focus:outline-none focus:border-teal-500 focus:bg-white transition-all cursor-pointer shadow-xs max-w-[150px]"
+                    title="Choose announcement voice"
+                  >
+                    {voices.map((v) => (
+                      <option key={v.name} value={v.name}>
+                        {v.name} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <button
-                  onClick={() => handleClearCalls()}
-                  className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-slate-200/40 bg-white"
-                  title="Clear Dispatch Log"
+                  onClick={() => setIsMuted(prev => !prev)}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${isMuted
+                      ? 'text-rose-500 bg-rose-50/50 border-rose-100 hover:bg-rose-50'
+                      : 'text-slate-400 hover:text-teal-650 hover:bg-slate-50 border-slate-200/40 bg-white'
+                    }`}
+                  title={isMuted ? "Unmute voice calls" : "Mute voice calls"}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 </button>
-              )}
+
+                {callQueue.length > 0 && (
+                  <button
+                    onClick={() => handleClearCalls()}
+                    className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-slate-200/40 bg-white"
+                    title="Clear Dispatch Log"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Active Display Calling Queue items list */}
@@ -351,63 +524,68 @@ export function CallingScreen() {
                   </p>
                 </div>
               ) : (
-                [...callQueue].reverse().map((call) => {
-                  const isRinging = call.status === 'ringing';
-                  const isSent = call.status === 'sent';
+                <AnimatePresence initial={false}>
+                  {[...callQueue].reverse().map((call) => {
+                    const isRinging = call.status === 'ringing';
+                    const isSent = call.status === 'sent';
 
-                  return (
-                    <div
-                      key={call.id}
-                      className={`border rounded-2xl p-4 flex items-center justify-between transition-all hover:shadow-xs group ${
-                        isRinging
-                          ? 'bg-amber-50/20 border-amber-200 shadow-xs'
-                          : isSent
-                          ? 'bg-teal-50/20 border-teal-100/50 shadow-2xs'
-                          : 'bg-slate-50/50 border-slate-200/60'
-                      }`}
-                    >
-                      <div className="overflow-hidden min-w-0 pr-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-mono font-black text-[10px] px-2 py-0.5 rounded border leading-none ${
-                            isRinging 
-                              ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                              : isSent
-                              ? 'bg-teal-50 border-teal-100 text-teal-800'
-                              : 'bg-white border-slate-200 text-slate-600'
-                          }`}>
-                            {call.queue}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wider truncate">
-                            Room {call.docCode} • {call.time}
-                          </span>
-                        </div>
-                        <p className="font-bold text-xs text-slate-750 truncate mt-2 leading-none">{call.name}</p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0 select-none">
-                        {isRinging ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="relative flex h-1.5 w-1.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                    return (
+                      <motion.div
+                        key={call.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 350, damping: 26 }}
+                        className={`border rounded-2xl p-4 flex items-center justify-between transition-all hover:shadow-xs group ${isRinging
+                            ? 'bg-amber-50/20 border-amber-200 shadow-xs'
+                            : isSent
+                              ? 'bg-teal-50/20 border-teal-100/50 shadow-2xs'
+                              : 'bg-slate-50/50 border-slate-200/60'
+                          }`}
+                      >
+                        <div className="overflow-hidden min-w-0 pr-2 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-mono font-black text-[10px] px-2 py-0.5 rounded border leading-none ${isRinging
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : isSent
+                                  ? 'bg-teal-50 border-teal-100 text-teal-800'
+                                  : 'bg-white border-slate-200 text-slate-600'
+                              }`}>
+                              {call.queue}
                             </span>
-                            <span className="text-[8px] font-bold text-amber-700 bg-amber-50 border border-amber-150 rounded-lg px-2 py-1 uppercase tracking-wider animate-pulse">
-                              Ringing
+                            <span className="text-[9px] font-bold text-slate-455 uppercase tracking-wider truncate">
+                              Room {call.docCode} • {call.time}
                             </span>
                           </div>
-                        ) : isSent ? (
-                          <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100/50 rounded-lg px-2 py-1 uppercase tracking-wider">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="text-[8px] font-bold text-slate-455 bg-white border border-slate-200 rounded-lg px-2 py-1 uppercase tracking-wider">
-                            Done
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
+                          <p className="font-bold text-xs text-slate-750 truncate mt-2 leading-none">{call.name}</p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0 select-none">
+                          {isRinging ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                              </span>
+                              <span className="text-[8px] font-bold text-amber-700 bg-amber-50 border border-amber-150 rounded-lg px-2 py-1 uppercase tracking-wider animate-pulse">
+                                Ringing
+                              </span>
+                            </div>
+                          ) : isSent ? (
+                            <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100/50 rounded-lg px-2 py-1 uppercase tracking-wider">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-bold text-slate-455 bg-white border border-slate-200 rounded-lg px-2 py-1 uppercase tracking-wider">
+                              Done
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               )}
             </div>
           </div>

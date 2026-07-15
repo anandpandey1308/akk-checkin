@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y python3 make g++ sqlite3 && rm -rf /var
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy backend files
+# Copy backend files and utility scripts
 COPY src/ ./src/
+COPY scripts/ ./scripts/
 
 # Copy static frontend files from Stage 1
 COPY --from=frontend-builder /app/public ./public/

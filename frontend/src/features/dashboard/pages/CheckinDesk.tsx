@@ -5,6 +5,8 @@ import type { LogEntry, Doctor, Patient } from '@/services/dashboard.service';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useHotkeys } from '@/hooks/useHotkeys';
 import { 
   Barcode, 
   Search, 
@@ -182,6 +184,36 @@ export function CheckinDesk() {
       scannerInputRef.current.focus();
     }
   };
+
+  // Keyboard Shortcuts hotkey hooks
+  // Focus Search Bar shortcut (/)
+  useHotkeys({ key: '/' }, () => {
+    const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  });
+
+  // Focus/Reset Barcode Scanner shortcut (Alt+S or Escape)
+  useHotkeys({ key: 's', altKey: true }, () => {
+    resetScanner();
+  });
+  useHotkeys({ key: 'Escape' }, () => {
+    resetScanner();
+  });
+
+  // Confirm Check-in shortcut (Ctrl+Enter or Cmd+Enter)
+  useHotkeys({ key: 'Enter', ctrlKey: true }, () => {
+    if (scannedPatient) {
+      handleConfirmCheckin();
+    }
+  });
+  useHotkeys({ key: 'Enter', metaKey: true }, () => {
+    if (scannedPatient) {
+      handleConfirmCheckin();
+    }
+  });
 
   // Log status cycle: waiting -> called -> completed
   const handleCycleStatus = async (id: number, currentStatus: string) => {
@@ -728,21 +760,27 @@ export function CheckinDesk() {
                 </Button>
               </div>
             ) : (
-              filteredLog.map((entry) => {
-                const isCompleted = entry.status === 'completed';
-                const isCalled = entry.status === 'called';
-                
-                return (
-                  <div 
-                    key={entry.id} 
-                    className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-xs group ${
-                      isCompleted 
-                        ? 'bg-slate-50/50 border-slate-200/60 opacity-80' 
-                        : isCalled 
-                        ? 'bg-amber-50/20 border-amber-200/80 shadow-xs' 
-                        : 'bg-white border-slate-200/90'
-                    }`}
-                  >
+              <AnimatePresence initial={false}>
+                {filteredLog.map((entry) => {
+                  const isCompleted = entry.status === 'completed';
+                  const isCalled = entry.status === 'called';
+                  
+                  return (
+                    <motion.div 
+                      key={entry.id} 
+                      layout
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -50 }}
+                      transition={{ duration: 0.2 }}
+                      className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-xs group ${
+                        isCompleted 
+                          ? 'bg-slate-50/50 border-slate-200/60 opacity-80' 
+                          : isCalled 
+                          ? 'bg-amber-50/20 border-amber-200/80 shadow-xs' 
+                          : 'bg-white border-slate-200/90'
+                      }`}
+                    >
                     
                     {/* Left block: Large Centered Queue Badge + Patient metadata */}
                     <div className="flex items-center gap-4 min-w-0">
@@ -842,9 +880,10 @@ export function CheckinDesk() {
 
                     </div>
 
-                  </div>
-                );
-              })
+                  </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             )}
           </div>
         </div>
