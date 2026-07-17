@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { DashboardService } from '@/services/dashboard.service';
 import type { LogEntry, Doctor, CallQueueEntry } from '@/services/dashboard.service';
-import { Alert } from '@/components/ui/Alert';
+import { toast } from 'sonner';
 import {
   PhoneCall,
   Volume2,
@@ -83,8 +83,6 @@ export function CallingScreen() {
   const [doctors, setDoctors] = React.useState<Doctor[]>([]);
   const [docStates, setDocStates] = React.useState<Record<string, 'idle' | 'calling' | 'busy' | 'absent'>>({});
   const [callQueue, setCallQueue] = React.useState<CallQueueEntry[]>([]);
-  const [actionError, setActionError] = React.useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = React.useState<string | null>(null);
 
   // Audio & Notification states
   const [isMuted, setIsMuted] = React.useState(false);
@@ -168,7 +166,7 @@ export function CallingScreen() {
       setDocStates(state.docStates);
       setCallQueue(state.callQueue);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to sync caller screen state.');
+      toast.error(err.message || 'Failed to sync caller screen state.');
     }
   }, []);
 
@@ -186,14 +184,12 @@ export function CallingScreen() {
       await DashboardService.updateDoctorState(code, nextState);
       fetchData();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to update doctor attendance.');
+      toast.error(err.message || 'Failed to update doctor attendance.');
     }
   };
 
   // Dispatch call
   const handleCallPatient = async (docCode: string, patient: LogEntry) => {
-    setActionError(null);
-    setActionSuccess(null);
     try {
       const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
@@ -211,10 +207,10 @@ export function CallingScreen() {
       await DashboardService.updateLogStatus(patient.id, { status: 'called' });
       await DashboardService.updateDoctorState(docCode, 'calling');
 
-      setActionSuccess(`Calling token ${patient.queue} (${patient.name}) to Room!`);
+      toast.success(`Calling token ${patient.queue} (${patient.name}) to Room!`);
       fetchData();
     } catch (err: any) {
-      setActionError(err.message || 'Call request failed.');
+      toast.error(err.message || 'Call request failed.');
     }
   };
 
@@ -225,7 +221,7 @@ export function CallingScreen() {
       await DashboardService.updateDoctorState(docCode, 'busy');
       fetchData();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to start consultation.');
+      toast.error(err.message || 'Failed to start consultation.');
     }
   };
 
@@ -240,10 +236,10 @@ export function CallingScreen() {
       }
 
       await DashboardService.updateDoctorState(docCode, 'idle');
-      setActionSuccess(`Room ${docCode} is now idle.`);
+      toast.success(`Room ${docCode} is now idle.`);
       fetchData();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to complete consultation.');
+      toast.error(err.message || 'Failed to complete consultation.');
     }
   };
 
@@ -251,10 +247,10 @@ export function CallingScreen() {
     if (!window.confirm(`Are you sure you want to clear call entries?`)) return;
     try {
       await DashboardService.clearCallQueue();
-      setActionSuccess('Cleared dispatch log.');
+      toast.success('Cleared dispatch log.');
       fetchData();
     } catch (err: any) {
-      setActionError(err.message || 'Failed to clear logs.');
+      toast.error(err.message || 'Failed to clear logs.');
     }
   };
 
@@ -272,230 +268,210 @@ export function CallingScreen() {
   };
 
   return (
-    <div className="space-y-6">
-      {actionError && <Alert variant="error" onClose={() => setActionError(null)}>{actionError}</Alert>}
-      {actionSuccess && <Alert variant="success" onClose={() => setActionSuccess(null)}>{actionSuccess}</Alert>}
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
         {/* Left Section: Doctor Consultation Terminals */}
-        <div className="xl:col-span-8">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[500px]">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-xl text-teal-600">
-                  <PhoneCall className="h-4.5 w-4.5" />
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Room Dispatch Board</h3>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full select-none">
-                    {doctors.filter(d => !d.callingHidden).length} Active Rooms
-                  </span>
-                </div>
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex justify-between items-center bg-white border border-slate-200/60 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="bg-teal-500/10 p-2.5 rounded-xl text-teal-600">
+                <PhoneCall className="h-5 w-5" />
               </div>
-              <span className="text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-200/70 px-2.5 py-1.5 rounded-xl uppercase tracking-wider select-none">
-                Live Status
-              </span>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Room Dispatch Board</h3>
+                <p className="text-xs text-slate-500 font-medium">{doctors.filter(d => !d.callingHidden).length} Active Rooms Online</p>
+              </div>
             </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Live Sync</span>
+            </div>
+          </div>
 
-            {/* List of Room Rows */}
-            <div className="divide-y divide-slate-100 flex-1">
-              {doctors.filter(d => !d.callingHidden).map((doc, idx) => {
-                const roomNo = idx + 1;
-                const currentState = docStates[doc.code] || 'idle';
-                const nextPatient = getNextPatientForDoctor(doc.code);
+          <div className="grid gap-3">
+            {doctors.filter(d => !d.callingHidden).map((doc, idx) => {
+              const roomNo = idx + 1;
+              const currentState = docStates[doc.code] || 'idle';
+              const nextPatient = getNextPatientForDoctor(doc.code);
 
-                // Find active ringing or busy call for this doctor
-                const activeCall = callQueue.find(
-                  (c) => c.docCode === doc.code && (c.status === 'ringing' || c.status === 'sent')
-                );
+              // Find active ringing or busy call for this doctor
+              const activeCall = callQueue.find(
+                (c) => c.docCode === doc.code && (c.status === 'ringing' || c.status === 'sent')
+              );
 
-                // Style indicators for room presence state
-                let badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-100/80';
-                if (currentState === 'calling') badgeColor = 'bg-amber-50 text-amber-700 border-amber-100/80';
-                else if (currentState === 'busy') badgeColor = 'bg-teal-50 text-teal-700 border-teal-100';
-                else if (currentState === 'absent') badgeColor = 'bg-slate-100 text-slate-450 border-slate-200';
+              // Style indicators for room presence state (Premium Apple-like pills)
+              let badgeStyle = 'bg-white border-slate-200 text-slate-700';
+              if (currentState === 'calling') badgeStyle = 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm';
+              else if (currentState === 'busy') badgeStyle = 'bg-teal-50 border-teal-200 text-teal-800 shadow-sm';
+              else if (currentState === 'absent') badgeStyle = 'bg-slate-50 border-slate-200 text-slate-400 opacity-70';
 
-                return (
-                  <div
-                    key={doc.code}
-                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 px-3 rounded-xl"
-                  >
-                    {/* Left Column: Doctor Details & Presence Toggle Switch */}
-                    <div className="flex items-center gap-3.5 min-w-[210px] shrink-0">
-                      <span className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-xs border shrink-0 select-none ${badgeColor}`}>
-                        R{roomNo}
-                      </span>
-                      <div className="min-w-0">
-                        <h4 className="font-bold text-xs text-slate-800 leading-none truncate">{doc.name}</h4>
-                        <div className="flex items-center gap-2 mt-1.5 leading-none">
-                          <span className="text-[9px] font-bold text-slate-400 font-mono uppercase">
-                            {doc.code}
-                          </span>
-                          <span className="text-slate-300">•</span>
-                          {/* Sleek Presence Toggle Button */}
-                          <button
-                            onClick={() => handleToggleDoctorPresence(doc.code, currentState)}
-                            className={`text-[9px] font-bold uppercase transition-colors cursor-pointer select-none leading-none border-b border-dotted ${currentState === 'absent'
-                                ? 'text-teal-650 hover:text-teal-700 border-teal-300'
-                                : 'text-slate-400 hover:text-slate-600 border-slate-300'
-                              }`}
-                            title={currentState === 'absent' ? "Click to set Doctor On-site" : "Click to set Doctor Away"}
-                          >
-                            {currentState === 'absent' ? "Set On-site" : "Set Away"}
-                          </button>
-                        </div>
-                      </div>
+              return (
+                <div
+                  key={doc.code}
+                  className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all duration-300 hover:shadow-md ${badgeStyle}`}
+                >
+                  {/* Doctor Info */}
+                  <div className="flex items-center gap-4 min-w-[220px] shrink-0">
+                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-sm border shrink-0 select-none shadow-sm ${
+                      currentState === 'calling' ? 'bg-amber-500 text-white border-amber-600' :
+                      currentState === 'busy' ? 'bg-teal-500 text-white border-teal-600' :
+                      currentState === 'absent' ? 'bg-slate-200 text-slate-500 border-slate-300' :
+                      'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      R{roomNo}
                     </div>
-
-                    {/* Middle Column: Current Queue Patient Details */}
-                    <div className="flex-1 min-w-0">
-                      {currentState === 'absent' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-200/50 px-2.5 py-1 rounded-lg select-none">
-                          <VolumeX className="h-3.5 w-3.5" /> Room Closed
+                    <div className="min-w-0">
+                      <h4 className={`font-bold text-sm leading-tight truncate ${currentState === 'absent' ? 'text-slate-500' : 'text-slate-900'}`}>{doc.name}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold text-slate-400 font-mono uppercase bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">
+                          {doc.code}
                         </span>
-                      ) : activeCall ? (
-                        <div className="flex items-center gap-2.5">
-                          <span className={`text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border select-none ${activeCall.status === 'ringing'
-                              ? 'bg-amber-50 border-amber-200 text-amber-700 animate-pulse'
-                              : 'bg-teal-50 border-teal-100 text-teal-800'
-                            }`}>
-                            {activeCall.status === 'ringing' ? 'Calling' : 'Treating'}
-                          </span>
-                          <span className="font-mono font-black text-[10px] text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg shadow-3xs leading-none">
-                            {activeCall.queue}
-                          </span>
-                          <span className="font-semibold text-xs text-slate-800 truncate">
-                            {activeCall.name}
-                          </span>
-                          {activeCall.priority && (
-                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                          )}
-                        </div>
-                      ) : nextPatient ? (
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md select-none">
-                            Next
-                          </span>
-                          <span className="font-mono font-black text-[10px] text-slate-650 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded-lg shadow-3xs leading-none">
-                            {nextPatient.queue}
-                          </span>
-                          <span className="font-semibold text-xs text-slate-700 truncate">
-                            {nextPatient.name}
-                          </span>
-                          {nextPatient.priority && (
-                            <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                          )}
-                        </div>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[9px] font-bold text-slate-450 uppercase tracking-wider bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg select-none">
-                          <UserCheck className="h-3.5 w-3.5 text-slate-400" /> Ready
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Right Column: Actions */}
-                    <div className="flex items-center gap-3 shrink-0 sm:justify-end">
-                      <div className="min-w-[150px] flex justify-end">
-                        {currentState === 'absent' ? (
-                          <span className="text-[10px] text-slate-400 font-bold uppercase select-none mr-2">Away</span>
-                        ) : activeCall ? (
-                          activeCall.status === 'ringing' ? (
-                            <div className="flex gap-2 w-full">
-                              <button
-                                onClick={() => {
-                                  const matchingLog = log.find((l) => l.gk === activeCall.gk && l.status === 'called');
-                                  handleCallPatient(doc.code, {
-                                    id: matchingLog?.id,
-                                    gk: activeCall.gk,
-                                    name: activeCall.name,
-                                    queue: activeCall.queue,
-                                    priority: activeCall.priority
-                                  } as any);
-                                }}
-                                className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold text-[10px] py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-3xs"
-                              >
-                                <Volume2 className="h-3.5 w-3.5 text-slate-450" />
-                                Recall
-                              </button>
-                              <button
-                                onClick={() => handleStartConsultation(doc.code, activeCall.id)}
-                                className="flex-1 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold text-[10px] py-1.5 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-3xs"
-                              >
-                                <Play className="h-3.5 w-3.5 text-teal-600" />
-                                Treat
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleCompleteConsultation(doc.code, activeCall.id, activeCall.gk || '')}
-                              className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-[10px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-3xs"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                              Done
-                            </button>
-                          )
-                        ) : nextPatient ? (
-                          <button
-                            onClick={() => handleCallPatient(doc.code, nextPatient)}
-                            className="w-full bg-white hover:bg-teal-50/40 border border-teal-600 text-teal-750 font-bold text-[10px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-3xs"
-                          >
-                            <Volume2 className="h-3.5 w-3.5 text-teal-650" />
-                            Call Next
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-semibold select-none mr-2">No Waiting</span>
-                        )}
+                        {/* Presence Toggle */}
+                        <button
+                          onClick={() => handleToggleDoctorPresence(doc.code, currentState)}
+                          className={`text-[10px] font-bold uppercase transition-colors cursor-pointer select-none border-b border-dotted ${
+                            currentState === 'absent'
+                              ? 'text-teal-600 hover:text-teal-700 border-teal-300'
+                              : 'text-slate-500 hover:text-slate-700 border-slate-300'
+                            }`}
+                        >
+                          {currentState === 'absent' ? "Set On-site" : "Set Away"}
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Patient Queue Detail */}
+                  <div className="flex-1 min-w-0 border-l border-slate-200/60 pl-5 py-1">
+                    {currentState === 'absent' ? (
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <VolumeX className="h-4 w-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Room Closed</span>
+                      </div>
+                    ) : activeCall ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border select-none ${
+                            activeCall.status === 'ringing'
+                              ? 'bg-amber-100 border-amber-300 text-amber-800 animate-pulse'
+                              : 'bg-teal-100 border-teal-300 text-teal-800'
+                            }`}>
+                            {activeCall.status === 'ringing' ? 'Calling Now' : 'Consulting'}
+                          </span>
+                          <span className="font-mono font-black text-xs text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shadow-sm">
+                            {activeCall.queue}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="font-bold text-sm text-slate-900 truncate">{activeCall.name}</span>
+                          {activeCall.priority && <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />}
+                        </div>
+                      </div>
+                    ) : nextPatient ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 border border-slate-200 px-2 py-0.5 rounded select-none">
+                            Next Up
+                          </span>
+                          <span className="font-mono font-bold text-xs text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg shadow-sm">
+                            {nextPatient.queue}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="font-semibold text-sm text-slate-700 truncate">{nextPatient.name}</span>
+                          {nextPatient.priority && <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <UserCheck className="h-4 w-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Ready for Patients</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Block */}
+                  <div className="flex items-center gap-3 shrink-0 sm:justify-end border-l border-slate-200/60 pl-5">
+                    <div className="w-[180px] flex justify-end">
+                      {currentState === 'absent' ? (
+                        <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Unavailable</span>
+                      ) : activeCall ? (
+                        activeCall.status === 'ringing' ? (
+                          <div className="flex gap-2 w-full">
+                            <button
+                              onClick={() => {
+                                const matchingLog = log.find((l) => l.gk === activeCall.gk && l.status === 'called');
+                                handleCallPatient(doc.code, {
+                                  id: matchingLog?.id,
+                                  gk: activeCall.gk,
+                                  name: activeCall.name,
+                                  queue: activeCall.queue,
+                                  priority: activeCall.priority
+                                } as any);
+                              }}
+                              className="flex-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-[11px] py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                            >
+                              <Volume2 className="h-4 w-4" /> Recall
+                            </button>
+                            <button
+                              onClick={() => handleStartConsultation(doc.code, activeCall.id)}
+                              className="flex-1 bg-teal-600 hover:bg-teal-700 border border-teal-700 text-white font-bold text-[11px] py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                            >
+                              <Play className="h-4 w-4" /> Treat
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleCompleteConsultation(doc.code, activeCall.id, activeCall.gk || '')}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white font-bold text-[11px] py-2 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Complete Consultation
+                          </button>
+                        )
+                      ) : nextPatient ? (
+                        <button
+                          onClick={() => handleCallPatient(doc.code, nextPatient)}
+                          className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-900 text-white font-bold text-[11px] py-2 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                        >
+                          <Volume2 className="h-4 w-4 text-teal-400" /> Call Next Patient
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-medium">Queue Empty</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Right Section: TV Dispatch Board */}
-        <div className="xl:col-span-4 space-y-4">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex flex-col min-h-[450px]">
-            <div className="border-b border-slate-100 pb-4 mb-4 flex justify-between items-center">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-teal-50 border border-teal-100/50 p-2 rounded-xl text-teal-600">
-                  <Activity className="h-4.5 w-4.5" />
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white border border-slate-200/60 rounded-2xl p-5 shadow-sm flex flex-col min-h-[500px] sticky top-24">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-500/10 p-2.5 rounded-xl text-indigo-600">
+                  <Activity className="h-5 w-5" />
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">TV Dispatch Board</h3>
-                  {callQueue.length > 0 && (
-                    <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full select-none">
-                      {callQueue.filter(c => c.status === 'ringing').length} ringing
-                    </span>
-                  )}
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">TV Display</h3>
+                  <p className="text-xs text-slate-500 font-medium">Public Dispatch</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Voice Selection Dropdown */}
-                {voices.length > 0 && !isMuted && (
-                  <select
-                    value={selectedVoiceName}
-                    onChange={(e) => setSelectedVoiceName(e.target.value)}
-                    className="bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-[9px] font-bold text-slate-600 focus:outline-none focus:border-teal-500 focus:bg-white transition-all cursor-pointer shadow-xs max-w-[150px]"
-                    title="Choose announcement voice"
-                  >
-                    {voices.map((v) => (
-                      <option key={v.name} value={v.name}>
-                        {v.name} ({v.lang})
-                      </option>
-                    ))}
-                  </select>
-                )}
-
                 <button
                   onClick={() => setIsMuted(prev => !prev)}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${isMuted
-                      ? 'text-rose-500 bg-rose-50/50 border-rose-100 hover:bg-rose-50'
-                      : 'text-slate-400 hover:text-teal-650 hover:bg-slate-50 border-slate-200/40 bg-white'
-                    }`}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer border shadow-sm ${
+                    isMuted
+                      ? 'text-rose-600 bg-rose-50 border-rose-200'
+                      : 'text-slate-600 bg-white border-slate-200 hover:bg-slate-50'
+                  }`}
                   title={isMuted ? "Unmute voice calls" : "Mute voice calls"}
                 >
                   {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -504,23 +480,40 @@ export function CallingScreen() {
                 {callQueue.length > 0 && (
                   <button
                     onClick={() => handleClearCalls()}
-                    className="text-slate-400 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-slate-200/40 bg-white"
-                    title="Clear Dispatch Log"
+                    className="p-2 rounded-xl text-slate-600 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors cursor-pointer shadow-sm"
+                    title="Clear Log"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 )}
               </div>
             </div>
+            
+            {/* Voice select dropdown (sleek) */}
+            {voices.length > 0 && !isMuted && (
+              <div className="mb-4">
+                <select
+                  value={selectedVoiceName}
+                  onChange={(e) => setSelectedVoiceName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer shadow-sm"
+                >
+                  {voices.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Active Display Calling Queue items list */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[480px] pr-1">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
               {callQueue.length === 0 ? (
-                <div className="h-full flex flex-col justify-center items-center py-16 text-slate-405 text-center">
-                  <VolumeX className="h-10 w-10 text-slate-350 mb-3 animate-pulse" />
-                  <p className="text-sm font-semibold text-slate-800">No active tokens dispatched</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                    Tokens calling rooms will be logged and animated here in real time.
+                <div className="h-full flex flex-col justify-center items-center py-20 text-slate-400 text-center">
+                  <VolumeX className="h-12 w-12 text-slate-200 mb-4" />
+                  <p className="text-sm font-bold text-slate-700">No active dispatches</p>
+                  <p className="text-xs text-slate-500 mt-2 max-w-[200px] leading-relaxed">
+                    Tokens will appear here when doctors call patients.
                   </p>
                 </div>
               ) : (
@@ -533,51 +526,55 @@ export function CallingScreen() {
                       <motion.div
                         key={call.id}
                         layout
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        initial={{ opacity: 0, scale: 0.9, y: -20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 350, damping: 26 }}
-                        className={`border rounded-2xl p-4 flex items-center justify-between transition-all hover:shadow-xs group ${isRinging
-                            ? 'bg-amber-50/20 border-amber-200 shadow-xs'
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        className={`rounded-2xl p-4 flex items-center justify-between transition-all border ${
+                          isRinging
+                            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 shadow-md ring-1 ring-amber-500/20'
                             : isSent
-                              ? 'bg-teal-50/20 border-teal-100/50 shadow-2xs'
-                              : 'bg-slate-50/50 border-slate-200/60'
-                          }`}
+                              ? 'bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200 shadow-sm'
+                              : 'bg-white border-slate-200 shadow-sm opacity-60'
+                        }`}
                       >
-                        <div className="overflow-hidden min-w-0 pr-2 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-mono font-black text-[10px] px-2 py-0.5 rounded border leading-none ${isRinging
-                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        <div className="overflow-hidden min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5 mb-1.5">
+                            <span className={`font-mono font-black text-xs px-2.5 py-0.5 rounded-md border shadow-sm leading-none ${
+                              isRinging
+                                ? 'bg-white border-amber-300 text-amber-800'
                                 : isSent
-                                  ? 'bg-teal-50 border-teal-100 text-teal-800'
-                                  : 'bg-white border-slate-200 text-slate-600'
-                              }`}>
+                                  ? 'bg-white border-teal-300 text-teal-800'
+                                  : 'bg-slate-100 border-slate-200 text-slate-500'
+                            }`}>
                               {call.queue}
                             </span>
-                            <span className="text-[9px] font-bold text-slate-455 uppercase tracking-wider truncate">
-                              Room {call.docCode} • {call.time}
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                              Room {call.docCode}
                             </span>
                           </div>
-                          <p className="font-bold text-xs text-slate-750 truncate mt-2 leading-none">{call.name}</p>
+                          <p className={`font-bold text-sm truncate ${isRinging ? 'text-slate-900' : 'text-slate-700'}`}>
+                            {call.name}
+                          </p>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0 select-none">
+                        <div className="flex items-center shrink-0 ml-3">
                           {isRinging ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="relative flex h-1.5 w-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="relative flex h-2.5 w-2.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
                               </span>
-                              <span className="text-[8px] font-bold text-amber-700 bg-amber-50 border border-amber-150 rounded-lg px-2 py-1 uppercase tracking-wider animate-pulse">
+                              <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
                                 Ringing
                               </span>
                             </div>
                           ) : isSent ? (
-                            <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100/50 rounded-lg px-2 py-1 uppercase tracking-wider">
-                              Active
+                            <span className="text-[10px] font-bold text-teal-700 bg-teal-500/10 px-2 py-1 rounded-lg uppercase tracking-widest border border-teal-500/20">
+                              Inside
                             </span>
                           ) : (
-                            <span className="text-[8px] font-bold text-slate-455 bg-white border border-slate-200 rounded-lg px-2 py-1 uppercase tracking-wider">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                               Done
                             </span>
                           )}

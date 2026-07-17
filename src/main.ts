@@ -1,7 +1,13 @@
-const express = require('express');
-const session = require('express-session');
-const path = require('path');
-const fs = require('fs');
+import express from 'express';
+import session from 'express-session';
+import path from 'path';
+import fs from 'fs';
+import { logger } from './common/logger';
+import { ErrorHandler } from './common/filters/ErrorHandler';
+import { ApiResponse } from './common/responses/ApiResponse';
+
+// We import the existing raw JS modules for now using require or import
+// as part of the strangler fig migration strategy.
 const { initializeDatabase, getDb } = require('./database');
 const SqliteSessionStore = require('./sessionStore');
 
@@ -10,9 +16,7 @@ initializeDatabase();
 const app = express();
 const PORT = process.env.PORT || 3004;
 
-// Trust the proxy (Fly.io edge router) to allow secure session cookies over HTTPS
 app.set('trust proxy', 1);
-
 app.use(express.json({ limit: '2mb' }));
 
 app.use(session({
@@ -30,16 +34,22 @@ app.use(session({
   },
 }));
 
+import { PatientRouter } from './modules/patients/patient.routes';
+
+// Mount existing legacy routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/state', require('./routes/state'));
 app.use('/api/log', require('./routes/log'));
 app.use('/api/docstates', require('./routes/docstates'));
 app.use('/api/callqueue', require('./routes/callqueue'));
-app.use('/api/patients', require('./routes/patients'));
 app.use('/api/camps', require('./routes/camps'));
 app.use('/api/doctors', require('./routes/doctors'));
-app.use('/api/public', require('./routes/public')); // no session middleware — token-gated instead
+app.use('/api/public', require('./routes/public'));
 
+// Mount new modern modules
+app.use('/api/patients', PatientRouter);
+
+// Example of new standardized endpoint
 app.get('/api/health', (req, res) => {
   const dbPath = path.join(__dirname, '..', 'data', 'akk_checkin.db');
   let dbSize = 'unknown';
@@ -51,54 +61,40 @@ app.get('/api/health', (req, res) => {
       const stats = fs.statSync(dbPath);
       dbSize = `${(stats.size / 1024 / 1024).toFixed(2)} MB`;
     }
-  } catch (error) {
+  } catch (error: any) {
     dbSize = `error: ${error.message}`;
   }
 
   const memoryUsage = process.memoryUsage();
 
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: `${process.uptime().toFixed(1)}s`,
-    database: {
-      exists: dbExists,
-      size: dbSize,
-      path: dbPath
-    },
+  res.json(ApiResponse.success({
+    database: { exists: dbExists, size: dbSize },
     system: {
       nodeVersion: process.version,
-      platform: process.platform,
       memory: {
-        rss: `${(memoryUsage.rss / 1024 / 1024).toFixed(1)} MB`,
-        heapTotal: `${(memoryUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`,
-        heapUsed: `${(memoryUsage.heapUsed / 1024 / 1024).toFixed(1)} MB`
+        rss: `${(memoryUsage.rss / 1024 / 1024).toFixed(1)} MB`
       }
     }
-  });
+  }, 'Health check passed'));
 });
 
-// Static frontend build (populated by `vite build` → copied here at deploy time)
+// Static frontend build
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
+    return res.status(404).json(ApiResponse.error('API endpoint not found'));
   }
   const indexPath = path.join(__dirname, '..', 'public', 'index.html');
   if (!fs.existsSync(indexPath)) {
-    return res.status(200).json({ message: 'AKK Check-in System API — no frontend build in public/ yet' });
+    return res.status(200).json({ message: 'No frontend build found' });
   }
   res.sendFile(indexPath);
 });
 
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error', detail: err.message });
-});
+// Centralized Global Error Handler MUST be the last middleware
+app.use(ErrorHandler);
 
 app.listen(PORT, () => {
-  console.log(`AKK Check-in System running on http://localhost:${PORT}`);
+  logger.info(`Enterprise API server started on port ${PORT}`);
 });
-
-module.exports = app;

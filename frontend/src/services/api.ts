@@ -7,7 +7,7 @@ export interface ApiErrorResponse {
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 15000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
